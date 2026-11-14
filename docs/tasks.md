@@ -21,9 +21,9 @@ Rule: one milestone at a time; no AWS provisioning without explicit approval.
 - [x] Validators (type, size, key, question length) + owner-from-JWT helper
 - [x] RAG response parser: citations only from retrieved references
 - [x] pytest with in-memory fakes (57 tests passing)
-- [ ] Frontend: Vite + React + TS, login stub, upload, list, chat UI, mock API mode
-- [ ] ESLint + `npm run build` + ruff/mypy pass locally
-- [ ] API contract examples in `docs/`
+- [x] Frontend: Vite + React + TS, login stub, upload, list, chat UI, mock API mode
+- [x] ESLint + `npm run build` + vitest + ruff/mypy pass locally
+- [x] API contract examples in `docs/api-contract.md`
 
 ## Phase 2 — AWS infrastructure and RAG (needs explicit approval to deploy)
 - [ ] Read-only pre-flight: model access, inference profile IDs, KB/S3 Vectors in ap-southeast-1
