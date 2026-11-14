@@ -14,13 +14,13 @@ Rule: one milestone at a time; no AWS provisioning without explicit approval.
 - [ ] Add `.gitignore`, initial commit (after owner OKs)
 
 ## Phase 1 — Local MVP (no AWS credentials)
-- [ ] Repo scaffold: `backend/`, `frontend/`, `infrastructure/`, `docs/decisions/`
-- [ ] Backend: pydantic models, config, error model, status state machine
-- [ ] Backend: service interfaces (storage, metadata, knowledge base) + fakes
-- [ ] Handlers: upload-url, complete, list, get, delete, chat/query, health
-- [ ] Validators (type, size, key, question length) + owner-from-JWT helper
-- [ ] RAG response parser: citations only from retrieved references
-- [ ] pytest with mocked boto3 (access control, upload validation, status transitions, parsing)
+- [x] Repo scaffold: `backend/` (frontend/infrastructure pending)
+- [x] Backend: pydantic models, config, error model, status state machine
+- [x] Backend: service interfaces (storage, metadata, knowledge base) + fakes
+- [x] Handlers: upload-url, complete, list, get, delete, chat/query, health
+- [x] Validators (type, size, key, question length) + owner-from-JWT helper
+- [x] RAG response parser: citations only from retrieved references
+- [x] pytest with in-memory fakes (57 tests passing)
 - [ ] Frontend: Vite + React + TS, login stub, upload, list, chat UI, mock API mode
 - [ ] ESLint + `npm run build` + ruff/mypy pass locally
 - [ ] API contract examples in `docs/`
