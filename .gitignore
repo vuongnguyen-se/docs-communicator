@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.*
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
