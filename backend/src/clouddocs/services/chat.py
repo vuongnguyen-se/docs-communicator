@@ -45,8 +45,8 @@ class ChatService:
             if doc_id is None:
                 continue
             doc = self._repo.get(user_id, doc_id)  # defence in depth: must be owned and known
-            if doc is None:
-                continue
+            if doc is None or doc.s3_key != key:
+                continue  # the cited object must be exactly the caller's stored key
             excerpt = " ".join(ref.text.split())[:MAX_EXCERPT_CHARS]
             if not excerpt or (doc_id, excerpt) in seen:
                 continue

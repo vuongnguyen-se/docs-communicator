@@ -83,3 +83,14 @@ def test_parse_bedrock_response():
 
 def test_parse_empty_response():
     assert parse_retrieve_and_generate({}).references == []
+
+
+def test_citation_whose_key_is_not_the_callers_stored_key_is_dropped(env: Env):
+    """Right document id but under another user's prefix must not be cited (B5)."""
+    mine = env.upload_pdf(USER_A, name="mine.pdf")
+    forged = RetrievedReference(
+        s3_uri=f"s3://bucket/uploads/{USER_B}/{mine.document_id}.pdf", text="text"
+    )
+    env.kb.result = RagResult(answer="x", references=[forged])
+    answer, cites = env.chat.query(USER_A, ChatRequest(question="q"))
+    assert cites == [] and answer == NO_EVIDENCE_MESSAGE
