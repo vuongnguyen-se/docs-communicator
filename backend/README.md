@@ -43,6 +43,7 @@ Optional (defaults in `config.py`):
 | `MAX_DOCUMENTS` | `5` |
 | `MAX_QUESTION_CHARS` | `2000` |
 | `UPLOAD_URL_TTL_SECONDS` | `300` |
+| `INDEX_GRACE_SECONDS` | `300` (how long a just-submitted document may be missing from the index before it is marked FAILED) |
 
 Provided by Lambda itself: `AWS_REGION`. Nothing here is a secret; no credentials or keys
 are ever configured as environment variables.
@@ -97,6 +98,5 @@ Logs permissions only.
 - **Owner (one-time)**: `bedrock:StartIngestionJob` for the initial sync.
 
 ## Known open points
-Tracked in `PLAN.md`: NOT_FOUND race right after ingest (B2), overlapping-sync conflicts
-(B4), packaging (B8). The adapter's Bedrock request shapes are validated against the botocore
+Tracked in `PLAN.md`: packaging (B8) and the remaining spike items. The adapter's Bedrock request shapes are validated against the botocore
 model but not against the live service.

@@ -29,10 +29,10 @@ Legend: `[x]` done, `[ ]` open, `[!]` blocked on a decision, `(AWS)` touches AWS
 | ID | Task | Depends on | Status |
 |---|---|---|---|
 | B1 | Remove inline metadata from `BedrockKnowledgeBase.ingest`; update tests (about 15 lines) | D1 = (a) | [x] |
-| B2 | Race: a just-ingested doc may report `NOT_FOUND` and be marked `FAILED`. Add a grace window (e.g. keep `INDEXING` for N minutes after `updated_at`) with tests | none, but confirm with spike | [ ] |
+| B2 | Race: a just-ingested doc may report `NOT_FOUND` and be marked `FAILED`. Grace window (`INDEX_GRACE_SECONDS`, default 300) keeps it `INDEXING`; explicit `FAILED` is not delayed | none, but confirm with spike | [x] |
 | B3 | Parser: also handle `customDocumentLocation` and the `metadata` map on references | only if D1 = (b) | [ ] |
-| B4 | Handle `ConflictException` from ingest or delete (overlapping sync jobs): bounded retry or leave `UPLOADED` for a later retry | none | [ ] |
-| B5 | Ownership defence: cross-check `metadata`/URI owner prefix against the caller in citations (S3 key already contains the user id) | none | [ ] |
+| B4 | `ConflictException` on ingest/delete: 3 attempts with 0.5 s/1 s backoff, then 503. Ingest that is busy/throttled leaves the doc `UPLOADED` and `/complete` can be called again | none | [x] |
+| B5 | Ownership defence: a citation is kept only if the cited S3 key equals the caller's stored `s3_key` (not just a matching doc id) | none | [x] |
 | B6 | Document the env-var contract for Terraform: `DOCUMENTS_BUCKET`, `TABLE_NAME`, `KNOWLEDGE_BASE_ID`, `DATA_SOURCE_ID`, `MODEL_ARN`, plus optional limits | none | [x] |
 | B7 | Document the exact IAM actions per Lambda (S3 prefix, DynamoDB table, Bedrock KB and model ARNs) | none | [x] |
 | B8 | Lambda packaging: decide zip layout, and whether to pin boto3 or rely on the runtime copy | none | [ ] |
@@ -99,3 +99,8 @@ Append one entry per working day: what was done, what changed in this file, what
 - D1 = (a). Done B1 (inline metadata removed, one test replaces two; 86 tests pass), B6 and B7 (`backend/README.md`).
 - Noted: without `s3:ListBucket`, a missing object returns 403 not 404; the README documents this.
 - Next: D2/D3 to unblock pre-flight, or B2/B4/B5 which need no decision.
+
+### 2026-11-15 (end of day)
+- Done B2, B4, B5. 95 tests pass; ruff and mypy clean. No AWS calls.
+- Behaviour change to flag: `POST /documents/{id}/complete` can now return 503 `UPSTREAM_UNAVAILABLE` (index busy or throttled) and leaves the document `UPLOADED`; the client should call it again. `docs/api-contract.md` lists 503 in its general table but does not mention it for this route, so the contract probably needs one sentence (owner to decide; I did not edit it). The mock API and frontend do not retry yet.
+- Still open: D2 to D5, then Part B pre-flight. Not covered: bucket-name check on cited URIs (ChatService does not know the bucket).
