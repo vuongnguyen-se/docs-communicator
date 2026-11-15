@@ -7,11 +7,13 @@ source type accepts S3-location direct ingestion must be confirmed in ap-southea
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from typing import Any
 
 from ..models import IndexState, RagResult
 from ..services.rag import parse_retrieve_and_generate
-from .errors import call
+from .errors import call, call_retry_conflict
 
 # Only a fully INDEXED document is searchable with its metadata. Partial states are treated
 # as FAILED so a document is never reported READY while its isolation metadata is missing.
@@ -46,8 +48,9 @@ class BedrockKnowledgeBase:
         data_source_id: str,
         bucket: str,
         model_arn: str,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
-        self._agent, self._rt = agent_client, runtime_client
+        self._agent, self._rt, self._sleep = agent_client, runtime_client, sleep
         self._kb, self._ds, self._bucket, self._model = (
             knowledge_base_id,
             data_source_id,
@@ -62,8 +65,9 @@ class BedrockKnowledgeBase:
         # owner_id/document_id are intentionally not sent: S3 data sources reject inline
         # metadata (only an S3 `.metadata.json` is allowed). Single-owner MVP needs none;
         # per-owner retrieval filters are Phase 4 work.
-        call(
+        call_retry_conflict(
             self._agent.ingest_knowledge_base_documents,
+            sleep=self._sleep,
             knowledgeBaseId=self._kb,
             dataSourceId=self._ds,
             documents=[
@@ -89,8 +93,9 @@ class BedrockKnowledgeBase:
         return map_document_status(str(details[0].get("status", "")))
 
     def delete(self, s3_key: str) -> None:
-        call(
+        call_retry_conflict(
             self._agent.delete_knowledge_base_documents,
+            sleep=self._sleep,
             knowledgeBaseId=self._kb,
             dataSourceId=self._ds,
             documentIdentifiers=[{"dataSourceType": "S3", "s3": {"uri": self._uri(s3_key)}}],

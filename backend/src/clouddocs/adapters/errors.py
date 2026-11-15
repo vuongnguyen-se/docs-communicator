@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -40,3 +41,27 @@ def call[T](fn: Callable[..., T], **kwargs: Any) -> T:
         raise
     except BotoCoreError as exc:
         raise UpstreamUnavailable("Upstream service is unreachable; retry later") from exc
+
+
+def call_retry_conflict[T](
+    fn: Callable[..., T],
+    *,
+    attempts: int = 3,
+    delay: float = 0.5,
+    sleep: Callable[[float], None] = time.sleep,
+    **kwargs: Any,
+) -> T:
+    """Like call(), but retries ConflictException (e.g. an overlapping sync) with backoff.
+
+    After the last attempt the conflict becomes UpstreamUnavailable so callers can retry later.
+    """
+    for attempt in range(attempts):
+        try:
+            return call(fn, **kwargs)
+        except ClientError as exc:
+            if aws_error_code(exc) != "ConflictException":
+                raise
+            if attempt == attempts - 1:
+                raise UpstreamUnavailable("Index is busy; retry later") from exc
+            sleep(delay * 2**attempt)
+    raise AssertionError("unreachable")  # pragma: no cover

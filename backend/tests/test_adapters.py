@@ -226,10 +226,11 @@ def test_dynamo_delete_and_connection_error() -> None:
 
 
 # ---- Bedrock KB ----------------------------------------------------------
-def kb(agent: Any, rt: Any) -> BedrockKnowledgeBase:
+def kb(agent: Any, rt: Any, sleeps: list[float] | None = None) -> BedrockKnowledgeBase:
     return BedrockKnowledgeBase(
         agent,
         rt,
+        sleep=(sleeps if sleeps is not None else []).append,
         knowledge_base_id="KB12345678",
         data_source_id="DS12345678",
         bucket=BUCKET,
@@ -376,3 +377,45 @@ def test_build_services_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
         }
     )
     assert svc.documents is not None and svc.chat is not None
+
+
+# ---- B4: overlapping sync (ConflictException) ------------------------------------------------
+def test_ingest_retries_conflict_with_backoff_then_succeeds() -> None:
+    agent = client("bedrock-agent")
+    sleeps: list[float] = []
+    with Stubber(agent) as st:
+        st.add_client_error("ingest_knowledge_base_documents", "ConflictException")
+        st.add_client_error("ingest_knowledge_base_documents", "ConflictException")
+        st.add_response("ingest_knowledge_base_documents", {"documentDetails": []})
+        kb(agent, client("bedrock-agent-runtime"), sleeps).ingest(KEY, "u1", "doc_1")
+        st.assert_no_pending_responses()
+    assert sleeps == [0.5, 1.0]
+
+
+def test_ingest_persistent_conflict_becomes_upstream_unavailable() -> None:
+    agent = client("bedrock-agent")
+    with Stubber(agent) as st:
+        for _ in range(3):
+            st.add_client_error("ingest_knowledge_base_documents", "ConflictException")
+        with pytest.raises(UpstreamUnavailable):
+            kb(agent, client("bedrock-agent-runtime")).ingest(KEY, "u1", "doc_1")
+
+
+def test_delete_retries_conflict() -> None:
+    agent = client("bedrock-agent")
+    with Stubber(agent) as st:
+        st.add_client_error("delete_knowledge_base_documents", "ConflictException")
+        st.add_response("delete_knowledge_base_documents", {"documentDetails": []})
+        kb(agent, client("bedrock-agent-runtime")).delete(KEY)
+        st.assert_no_pending_responses()
+
+
+def test_non_conflict_errors_are_not_retried() -> None:
+    from botocore.exceptions import ClientError
+
+    agent = client("bedrock-agent")
+    with Stubber(agent) as st:
+        st.add_client_error("ingest_knowledge_base_documents", "ValidationException")
+        with pytest.raises(ClientError):
+            kb(agent, client("bedrock-agent-runtime")).ingest(KEY, "u1", "doc_1")
+        st.assert_no_pending_responses()
