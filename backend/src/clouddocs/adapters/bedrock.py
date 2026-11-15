@@ -59,9 +59,9 @@ class BedrockKnowledgeBase:
         return f"s3://{self._bucket}/{s3_key}"
 
     def ingest(self, s3_key: str, owner_id: str, document_id: str) -> None:
-        def attr(key: str, value: str) -> dict[str, Any]:
-            return {"key": key, "value": {"type": "STRING", "stringValue": value}}
-
+        # owner_id/document_id are intentionally not sent: S3 data sources reject inline
+        # metadata (only an S3 `.metadata.json` is allowed). Single-owner MVP needs none;
+        # per-owner retrieval filters are Phase 4 work.
         call(
             self._agent.ingest_knowledge_base_documents,
             knowledgeBaseId=self._kb,
@@ -71,15 +71,7 @@ class BedrockKnowledgeBase:
                     "content": {
                         "dataSourceType": "S3",
                         "s3": {"s3Location": {"uri": self._uri(s3_key)}},
-                    },
-                    # Retrieval metadata for future per-owner filtering (Phase 4 isolation).
-                    "metadata": {
-                        "type": "IN_LINE_ATTRIBUTE",
-                        "inlineAttributes": [
-                            attr("ownerId", owner_id),
-                            attr("documentId", document_id),
-                        ],
-                    },
+                    }
                 }
             ],
         )

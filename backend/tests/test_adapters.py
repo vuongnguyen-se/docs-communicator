@@ -240,15 +240,7 @@ def kb(agent: Any, rt: Any) -> BedrockKnowledgeBase:
 URI = f"s3://{BUCKET}/{KEY}"
 
 
-def test_ingest_sends_s3_location_and_owner_metadata() -> None:
-    agent = client("bedrock-agent")
-    with Stubber(agent) as st:
-        st.add_response("ingest_knowledge_base_documents", {"documentDetails": []})
-        kb(agent, client("bedrock-agent-runtime")).ingest(KEY, "u1", "doc_1")
-        st.assert_no_pending_responses()
-
-
-def test_ingest_request_body() -> None:
+def test_ingest_sends_only_s3_location_no_inline_metadata() -> None:
     agent = client("bedrock-agent")
     seen: dict[str, Any] = {}
 
@@ -259,10 +251,15 @@ def test_ingest_request_body() -> None:
     with Stubber(agent) as st:
         st.add_response("ingest_knowledge_base_documents", {"documentDetails": []})
         kb(agent, client("bedrock-agent-runtime")).ingest(KEY, "u1", "doc_1")
+        st.assert_no_pending_responses()
+    assert seen["knowledgeBaseId"] == "KB12345678"
+    assert seen["dataSourceId"] == "DS12345678"
     doc = seen["documents"][0]
-    assert doc["content"]["s3"]["s3Location"]["uri"] == URI
-    attrs = {a["key"]: a["value"]["stringValue"] for a in doc["metadata"]["inlineAttributes"]}
-    assert attrs == {"ownerId": "u1", "documentId": "doc_1"}
+    assert doc["content"] == {
+        "dataSourceType": "S3",
+        "s3": {"s3Location": {"uri": URI}},
+    }
+    assert "metadata" not in doc  # S3 data sources reject inline metadata
 
 
 @pytest.mark.parametrize(
