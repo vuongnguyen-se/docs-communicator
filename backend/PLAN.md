@@ -10,7 +10,7 @@ Legend: `[x]` done, `[ ]` open, `[!]` blocked on a decision, `(AWS)` touches AWS
 
 | ID | Decision | Recommendation | Status |
 |---|---|---|---|
-| D1 | Document metadata: (a) S3 data source, no inline metadata for MVP; (b) CUSTOM data source with inline metadata | (a). S3 data sources reject inline metadata, and (b) changes identifiers and citation locations | [!] open |
+| D1 | Document metadata: (a) S3 data source, no inline metadata for MVP; (b) CUSTOM data source with inline metadata | (a). S3 data sources reject inline metadata, and (b) changes identifiers and citation locations | [x] decided: (a) |
 | D2 | Is cross-region inference acceptable? (`architecture.md` §9 Q2) | Decide before choosing the chat model. It can share data across regions | [!] open |
 | D3 | AWS profile name for read-only pre-flight, and who creates it | SSO or role with the read-only actions listed in section 4 | [!] open |
 | D4 | Monthly budget ceiling | Needed before any billable spike | [!] open |
@@ -28,13 +28,13 @@ Legend: `[x]` done, `[ ]` open, `[!]` blocked on a decision, `(AWS)` touches AWS
 
 | ID | Task | Depends on | Status |
 |---|---|---|---|
-| B1 | Remove inline metadata from `BedrockKnowledgeBase.ingest`; update tests (about 15 lines) | D1 = (a) | [ ] |
+| B1 | Remove inline metadata from `BedrockKnowledgeBase.ingest`; update tests (about 15 lines) | D1 = (a) | [x] |
 | B2 | Race: a just-ingested doc may report `NOT_FOUND` and be marked `FAILED`. Add a grace window (e.g. keep `INDEXING` for N minutes after `updated_at`) with tests | none, but confirm with spike | [ ] |
 | B3 | Parser: also handle `customDocumentLocation` and the `metadata` map on references | only if D1 = (b) | [ ] |
 | B4 | Handle `ConflictException` from ingest or delete (overlapping sync jobs): bounded retry or leave `UPLOADED` for a later retry | none | [ ] |
 | B5 | Ownership defence: cross-check `metadata`/URI owner prefix against the caller in citations (S3 key already contains the user id) | none | [ ] |
-| B6 | Document the env-var contract for Terraform: `DOCUMENTS_BUCKET`, `TABLE_NAME`, `KNOWLEDGE_BASE_ID`, `DATA_SOURCE_ID`, `MODEL_ARN`, plus optional limits | none | [ ] |
-| B7 | Document the exact IAM actions per Lambda (S3 prefix, DynamoDB table, Bedrock KB and model ARNs) | none | [ ] |
+| B6 | Document the env-var contract for Terraform: `DOCUMENTS_BUCKET`, `TABLE_NAME`, `KNOWLEDGE_BASE_ID`, `DATA_SOURCE_ID`, `MODEL_ARN`, plus optional limits | none | [x] |
+| B7 | Document the exact IAM actions per Lambda (S3 prefix, DynamoDB table, Bedrock KB and model ARNs) | none | [x] |
 | B8 | Lambda packaging: decide zip layout, and whether to pin boto3 or rely on the runtime copy | none | [ ] |
 | B9 | Log token usage if the API returns it (spec section 9); never log document text | spike | [ ] |
 | B10 | Add `moto` or a few integration-style tests only if Stubber tests prove insufficient | none | [ ] |
@@ -93,4 +93,9 @@ Append one entry per working day: what was done, what changed in this file, what
 - Added S3, DynamoDB, Bedrock adapters, `build_services`, and 30 adapter tests. 87 tests pass.
 - Completed Part A research. Found the inline-metadata problem (B1) and the possible `NOT_FOUND` race (B2).
 - Created this plan. No AWS calls made, nothing deployed.
-- Blocked on D1 to D5.
+- Blocked on D2 to D5 (D1 decided: option a).
+
+### 2026-11-15 (later)
+- D1 = (a). Done B1 (inline metadata removed, one test replaces two; 86 tests pass), B6 and B7 (`backend/README.md`).
+- Noted: without `s3:ListBucket`, a missing object returns 403 not 404; the README documents this.
+- Next: D2/D3 to unblock pre-flight, or B2/B4/B5 which need no decision.
