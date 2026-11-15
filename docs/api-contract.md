@@ -33,7 +33,7 @@ The browser then POSTs the file as `multipart/form-data` to `upload.url` with al
 (Phase 2 note: the S3 adapter must add policy conditions for `content-length-range` ≤ 10 MB.)
 
 ## POST /documents/{id}/complete → 202
-Verifies the stored object (exists, real size, `%PDF-` header), then starts indexing. Idempotent. Returns `{ "document": {…, "status": "INDEXING"} }`, or `status: "FAILED"` with `errorCode` `INVALID_FILE` / `INGEST_REQUEST_FAILED`. `409` if the file was not uploaded yet.
+Verifies the stored object (exists, real size, `%PDF-` header), then starts indexing. Idempotent. Returns `{ "document": {…, "status": "INDEXING"} }`, or `status: "FAILED"` with `errorCode` `INVALID_FILE` / `INGEST_REQUEST_FAILED`. `409` if the file was not uploaded yet. `503` `UPSTREAM_UNAVAILABLE` if the knowledge base is busy or throttled (including an overlapping sync that persists after bounded retries): the document stays `UPLOADED` and the client should call this endpoint again; the call is safe to repeat.
 
 ## GET /documents → 200
 `{ "documents": [ … ] }`. Documents in `INDEXING` are refreshed from the knowledge base; only a confirmed index sets `READY`.
