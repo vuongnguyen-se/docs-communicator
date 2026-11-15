@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from clouddocs.errors import Conflict
 from clouddocs.models import (
     Document,
@@ -14,7 +16,8 @@ from clouddocs.services.interfaces import ObjectInfo
 
 
 class FakeRepo:
-    def __init__(self) -> None:
+    def __init__(self, now: Callable[[], str] = lambda: "2026-01-01T00:00:00+00:00") -> None:
+        self._now = now
         self.items: dict[tuple[str, str], Document] = {}
 
     def put(self, doc: Document) -> None:
@@ -40,7 +43,9 @@ class FakeRepo:
         if doc.status != expected:
             raise Conflict("Document status changed concurrently")
         ensure_transition(expected, new)
-        updated = doc.model_copy(update={"status": new, "error_code": error_code})
+        updated = doc.model_copy(
+            update={"status": new, "error_code": error_code, "updated_at": self._now()}
+        )
         self.items[(owner_id, document_id)] = updated
         return updated
 

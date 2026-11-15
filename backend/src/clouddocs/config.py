@@ -13,6 +13,7 @@ class Settings:
     max_question_chars: int = 2000
     upload_url_ttl_seconds: int = 300
     max_filename_chars: int = 200
+    index_grace_seconds: int = 300
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -24,4 +25,5 @@ class Settings:
             upload_url_ttl_seconds=int(
                 os.environ.get("UPLOAD_URL_TTL_SECONDS", d.upload_url_ttl_seconds)
             ),
+            index_grace_seconds=int(os.environ.get("INDEX_GRACE_SECONDS", d.index_grace_seconds)),
         )

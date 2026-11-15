@@ -147,3 +147,41 @@ def test_delete_upstream_error_is_503_and_keeps_data(env: Env):
     with pytest.raises(UpstreamUnavailable):
         env.docs.delete_document(USER_A, doc.document_id)
     assert doc.s3_key in env.storage.objects
+
+
+# ---- B2: grace window for a just-submitted document ---------------------------------------
+def test_not_found_right_after_ingest_stays_indexing(env: Env):
+    doc = env.upload_pdf()
+    env.docs.complete_upload(USER_A, doc.document_id)
+    env.kb.states.pop(doc.s3_key)  # index does not list it yet
+    env.advance(30)
+    assert env.docs.get_document(USER_A, doc.document_id).status == S.INDEXING
+
+
+def test_not_found_after_grace_marks_failed(env: Env):
+    doc = env.upload_pdf()
+    env.docs.complete_upload(USER_A, doc.document_id)
+    env.kb.states.pop(doc.s3_key)
+    env.advance(env.settings.index_grace_seconds + 1)
+    got = env.docs.get_document(USER_A, doc.document_id)
+    assert got.status == S.FAILED and got.error_code == "INDEXING_FAILED"
+
+
+def test_explicit_failed_state_is_not_delayed_by_grace(env: Env):
+    doc = env.upload_pdf()
+    env.docs.complete_upload(USER_A, doc.document_id)
+    env.kb.states[doc.s3_key] = IndexState.FAILED
+    assert env.docs.get_document(USER_A, doc.document_id).status == S.FAILED
+
+
+# ---- B4: transient ingest problems are retryable, not permanent failures --------------------
+def test_busy_index_leaves_document_uploaded_and_is_retryable(env: Env):
+    doc = env.upload_pdf()
+    env.kb.ingest_error = UpstreamUnavailable("busy")
+    with pytest.raises(UpstreamUnavailable):
+        env.docs.complete_upload(USER_A, doc.document_id)
+    assert env.repo.get(USER_A, doc.document_id).status == S.UPLOADED  # type: ignore[union-attr]
+    env.kb.ingest_error = None
+    done = env.docs.complete_upload(USER_A, doc.document_id)  # client retries /complete
+    assert done.status == S.INDEXING
+    assert env.kb.index_state(doc.s3_key) == IndexState.IN_PROGRESS

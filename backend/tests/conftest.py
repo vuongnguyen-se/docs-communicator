@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 import json
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -20,7 +21,9 @@ USER_B = "user-b-sub"
 
 class Env:
     def __init__(self) -> None:
-        self.repo, self.storage, self.kb = FakeRepo(), FakeStorage(), FakeKB()
+        self.now = datetime(2026, 1, 1, tzinfo=UTC)
+        self.repo = FakeRepo(now=lambda: self.now.isoformat())
+        self.storage, self.kb = FakeStorage(), FakeKB()
         self.settings = Settings(max_documents=3)
         counter = itertools.count(1)
         self.docs = DocumentService(
@@ -28,10 +31,13 @@ class Env:
             self.storage,
             self.kb,
             self.settings,
-            now=lambda: "2026-01-01T00:00:00+00:00",
+            now=lambda: self.now.isoformat(),
             new_id=lambda: f"doc_{next(counter):032x}",
         )
         self.chat = ChatService(self.repo, self.kb, self.settings)
+
+    def advance(self, seconds: int) -> None:
+        self.now += timedelta(seconds=seconds)
 
     def upload_pdf(self, user: str = USER_A, name: str = "notes.pdf", data: bytes | None = None):
         from clouddocs.models import UploadUrlRequest

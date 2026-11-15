@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from ..config import Settings
 from ..errors import Conflict, LimitExceeded, NotFound, UpstreamUnavailable
@@ -70,25 +70,32 @@ class DocumentService:
 
     def complete_upload(self, user_id: str, document_id: str) -> Document:
         doc = self._require(user_id, document_id)
-        if doc.status != DocumentStatus.PENDING_UPLOAD:
-            return doc  # idempotent: repeated calls return the current state
-        info = self._storage.head(doc.s3_key)
-        if info is None:
-            raise Conflict("Upload not found; upload the file first")
-        if info.size > self._s.max_file_bytes or not looks_like_pdf(info.first_bytes):
-            self._storage.delete(doc.s3_key)
-            return self._repo.update_status(
-                user_id,
-                document_id,
-                DocumentStatus.PENDING_UPLOAD,
-                DocumentStatus.FAILED,
-                "INVALID_FILE",
+        if doc.status == DocumentStatus.PENDING_UPLOAD:
+            info = self._storage.head(doc.s3_key)
+            if info is None:
+                raise Conflict("Upload not found; upload the file first")
+            if info.size > self._s.max_file_bytes or not looks_like_pdf(info.first_bytes):
+                self._storage.delete(doc.s3_key)
+                return self._repo.update_status(
+                    user_id,
+                    document_id,
+                    DocumentStatus.PENDING_UPLOAD,
+                    DocumentStatus.FAILED,
+                    "INVALID_FILE",
+                )
+            doc = self._repo.update_status(
+                user_id, document_id, DocumentStatus.PENDING_UPLOAD, DocumentStatus.UPLOADED
             )
-        doc = self._repo.update_status(
-            user_id, document_id, DocumentStatus.PENDING_UPLOAD, DocumentStatus.UPLOADED
-        )
+        elif doc.status != DocumentStatus.UPLOADED:
+            return doc  # idempotent: repeated calls return the current state
+        # UPLOADED here means a previous attempt could not reach the index (transient); retry.
         try:
             self._kb.ingest(doc.s3_key, user_id, document_id)
+        except UpstreamUnavailable:
+            # Busy/throttled/overlapping sync: not the document's fault. Leave it UPLOADED so
+            # the client can call /complete again instead of showing a permanent failure.
+            log.warning("ingest deferred", extra={"documentId": document_id})
+            raise
         except Exception:
             log.exception("ingest request failed", extra={"documentId": document_id})
             return self._repo.update_status(
@@ -148,6 +155,8 @@ class DocumentService:
             return self._repo.update_status(
                 doc.owner_id, doc.document_id, DocumentStatus.INDEXING, DocumentStatus.READY
             )
+        if state == IndexState.NOT_FOUND and self._within_index_grace(doc):
+            return doc  # the index may not list a just-submitted document yet
         if state in (IndexState.FAILED, IndexState.NOT_FOUND):
             return self._repo.update_status(
                 doc.owner_id,
@@ -157,3 +166,12 @@ class DocumentService:
                 "INDEXING_FAILED",
             )
         return doc
+
+    def _within_index_grace(self, doc: Document) -> bool:
+        """True while the document entered INDEXING recently (updated_at = that transition)."""
+        try:
+            started = datetime.fromisoformat(doc.updated_at)
+            current = datetime.fromisoformat(self._now())
+        except ValueError:
+            return False
+        return current - started < timedelta(seconds=self._s.index_grace_seconds)
