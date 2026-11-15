@@ -6,7 +6,8 @@ requires-python = ">=3.12"
 dependencies = ["pydantic>=2.7,<3"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.5", "mypy>=1.10"]
+aws = ["boto3>=1.35"]  # already present in the Lambda runtime; not bundled
+dev = ["pytest>=8", "ruff>=0.5", "mypy>=1.10", "boto3>=1.35"]
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -32,3 +33,7 @@ python_version = "3.12"
 strict = true
 mypy_path = "src"
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["boto3", "boto3.*", "botocore", "botocore.*"]
+ignore_missing_imports = true
