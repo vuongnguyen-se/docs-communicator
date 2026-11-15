@@ -102,5 +102,9 @@ Append one entry per working day: what was done, what changed in this file, what
 
 ### 2026-11-15 (end of day)
 - Done B2, B4, B5. 95 tests pass; ruff and mypy clean. No AWS calls.
-- Behaviour change to flag: `POST /documents/{id}/complete` can now return 503 `UPSTREAM_UNAVAILABLE` (index busy or throttled) and leaves the document `UPLOADED`; the client should call it again. `docs/api-contract.md` lists 503 in its general table but does not mention it for this route, so the contract probably needs one sentence (owner to decide; I did not edit it). The mock API and frontend do not retry yet.
+- Behaviour change to flag: `POST /documents/{id}/complete` can now return 503 `UPSTREAM_UNAVAILABLE` (index busy or throttled) and leaves the document `UPLOADED`; the client should call it again. The contract sentence for this route was added on request (commit `19aa0e2`), so that item is closed. The mock API and frontend do not retry `/complete` yet (outside `backend/`, needs owner OK).
 - Still open: D2 to D5, then Part B pre-flight. Not covered: bucket-name check on cited URIs (ChatService does not know the bucket).
+
+### 2026-11-15 (contract)
+- Closed: contract sentence for `/complete` 503 added to `docs/api-contract.md` (`19aa0e2`).
+- Open follow-up: frontend/mock API retry of `/complete` on 503 (needs owner OK to edit outside `backend/`).
