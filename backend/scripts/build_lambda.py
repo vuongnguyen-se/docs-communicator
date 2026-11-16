@@ -3,7 +3,9 @@
 Usage (from backend/):  python scripts/build_lambda.py [--arch arm64|x86_64] [--out dist]
 
 One zip serves all three functions; Terraform selects the entry point per function:
-  clouddocs.handlers.documents.handler | clouddocs.handlers.chat.handler | clouddocs.handlers.health.handler
+  clouddocs.handlers.documents.handler
+  clouddocs.handlers.chat.handler
+  clouddocs.handlers.health.handler
 
 - Dependencies come from [project].dependencies in pyproject.toml, installed as Linux
   wheels for the chosen architecture (pydantic-core is a compiled extension), so the zip can
