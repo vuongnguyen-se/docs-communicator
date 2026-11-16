@@ -61,7 +61,7 @@ Model access grant cannot be proven read-only; mark as unverified until a real c
 Only if Part A and B leave direct-ingestion behaviour unclear. Needs written approval of
 resources, cost estimate and teardown first.
 
-- [ ] S1 Proposal: resources, cost estimate, teardown steps, time box (about 1 hour)
+- [x] S1 Proposal drafted: `SPIKE_PROPOSAL.md` (awaiting owner approval; nothing run)
 - [ ] S2 Create vector bucket and index (1024 dims, cosine, non-filterable keys `AMAZON_BEDROCK_TEXT` and `AMAZON_BEDROCK_METADATA`)
 - [ ] S3 Create KB and S3 data source; run the initial sync
 - [ ] S4 Direct-ingest one small PDF; record status sequence and whether `NOT_FOUND` appears early
@@ -113,3 +113,7 @@ Append one entry per working day: what was done, what changed in this file, what
 - Done B8: `backend/scripts/build_lambda.py` builds a reproducible zip (2.5 MiB; arm64 default, x86_64 optional; pydantic as Linux wheels; boto3 from the runtime). Checked: correct `cpython-312-aarch64` binary, identical hash on rebuild, bundled `clouddocs/` byte-identical to `src/`, all modules compile. Not checked: importing from the zip on Linux (host is Windows) or running in a real Lambda.
 - Open to verify in the spike: the runtime boto3 version supports `ingest_knowledge_base_documents`.
 - Still blocked on D2 to D5 for Part B and Terraform.
+
+### 2026-11-16 (spike proposal)
+- Drafted `SPIKE_PROPOSAL.md` (S1): questions Q1-Q9, resources, procedure, cost estimate (expected under $0.50, proposed hard stop $2, partly unverified prices), guardrails, teardown, options A/B/C and an owner approval checklist. Nothing created or run.
+- Still blocked on D2-D5 and the read-only profile for Part B.
