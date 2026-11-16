@@ -19,8 +19,28 @@ No AWS credentials are needed for tests (adapter tests use botocore `Stubber`).
 | `clouddocs.handlers.chat.handler` | `POST /chat/query` | Needs DynamoDB read and KB query |
 | `clouddocs.handlers.health.handler` | `GET /health` | Touches no AWS service; logs only |
 
-Package `src/clouddocs` as the Lambda root. boto3 is provided by the Lambda runtime and is
-not bundled (decision on pinning is open: PLAN.md B8).
+## Packaging (B8)
+
+```bash
+python scripts/build_lambda.py                 # dist/clouddocs-lambda-arm64.zip (default)
+python scripts/build_lambda.py --arch x86_64   # dist/clouddocs-lambda-x86_64.zip
+```
+
+- **One zip, three functions.** Terraform points each function at the same zip with a
+  different handler string (table above). IAM differs per function, the code does not.
+- **Runtime:** Python 3.12, default architecture **arm64** (Graviton, cheaper). Pick the same
+  architecture in the Lambda function settings as the zip you upload.
+- **Layout:** `clouddocs/` and its dependencies (currently pydantic, as Linux wheels for the
+  chosen architecture) at the zip root. Tests, `__pycache__` and `.pyc` files are excluded.
+  Size is about 2.5 MiB, far below the 50 MB direct-upload limit.
+- **boto3 is not bundled.** The Lambda runtime provides it, which keeps the zip small. The
+  runtime copy must be new enough for the `bedrock-agent` `*KnowledgeBaseDocuments` calls;
+  confirm this in the spike and, if it is too old, bundle a pinned boto3 instead.
+- **Reproducible:** fixed timestamps and sorted entries, so rebuilding unchanged code gives an
+  identical file hash. Dependency versions follow the ranges in `pyproject.toml`; a lock file
+  is a later hardening step.
+- The script only downloads wheels from PyPI. It never uploads or deploys anything, and
+  `dist/` is git-ignored.
 
 ## Environment variables (B6): the contract Terraform must satisfy
 

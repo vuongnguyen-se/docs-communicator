@@ -35,7 +35,7 @@ Legend: `[x]` done, `[ ]` open, `[!]` blocked on a decision, `(AWS)` touches AWS
 | B5 | Ownership defence: a citation is kept only if the cited S3 key equals the caller's stored `s3_key` (not just a matching doc id) | none | [x] |
 | B6 | Document the env-var contract for Terraform: `DOCUMENTS_BUCKET`, `TABLE_NAME`, `KNOWLEDGE_BASE_ID`, `DATA_SOURCE_ID`, `MODEL_ARN`, plus optional limits | none | [x] |
 | B7 | Document the exact IAM actions per Lambda (S3 prefix, DynamoDB table, Bedrock KB and model ARNs) | none | [x] |
-| B8 | Lambda packaging: decide zip layout, and whether to pin boto3 or rely on the runtime copy | none | [ ] |
+| B8 | Lambda packaging: one zip for all handlers, arm64 default, boto3 from the runtime (`scripts/build_lambda.py`) | none | [x] |
 | B9 | Log token usage if the API returns it (spec section 9); never log document text | spike | [ ] |
 | B10 | Add `moto` or a few integration-style tests only if Stubber tests prove insufficient | none | [ ] |
 
@@ -108,3 +108,8 @@ Append one entry per working day: what was done, what changed in this file, what
 ### 2026-11-15 (contract)
 - Closed: contract sentence for `/complete` 503 added to `docs/api-contract.md` (`19aa0e2`).
 - Open follow-up: frontend/mock API retry of `/complete` on 503 (needs owner OK to edit outside `backend/`).
+
+### 2026-11-16
+- Done B8: `backend/scripts/build_lambda.py` builds a reproducible zip (2.5 MiB; arm64 default, x86_64 optional; pydantic as Linux wheels; boto3 from the runtime). Checked: correct `cpython-312-aarch64` binary, identical hash on rebuild, bundled `clouddocs/` byte-identical to `src/`, all modules compile. Not checked: importing from the zip on Linux (host is Windows) or running in a real Lambda.
+- Open to verify in the spike: the runtime boto3 version supports `ingest_knowledge_base_documents`.
+- Still blocked on D2 to D5 for Part B and Terraform.
