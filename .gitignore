@@ -1,14 +1,30 @@
+# Dependencies
 node_modules/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+
+# Build output
 dist/
+build/
+cdk.out/
+cdk.context.json
+
+# Local environment and secrets
 .env
 .env.*
-*.tfstate
-*.tfstate.*
-.terraform/
-*.tfvars
-__pycache__/
-.venv/
+!.env.example
+*.pem
+*.key
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs and test artifacts
+*.log
+coverage/
 .pytest_cache/
-.ruff_cache/
-.mypy_cache/
-*.egg-info/
