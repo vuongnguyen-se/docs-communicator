@@ -14,15 +14,16 @@ Suggested table name: `CloudDocsDocuments`
 ```json
 {
   "PK": "USER#<userId>",
-  "SK": "DOCUMENT#<documentId>",
-  "documentId": "<uuid>",
+  "SK": "DOC#<documentId>",
+  "documentId": "doc_<32 hex>",
   "userId": "<userId-or-local-demo-user>",
-  "fileName": "aws-notes.pdf",
-  "s3Key": "uploads/<userId>/<documentId>/aws-notes.pdf",
+  "filename": "aws-notes.pdf",
+  "s3Key": "uploads/<userId>/<documentId>.pdf",
   "contentType": "application/pdf",
-  "sizeBytes": 123456,
+  "fileSize": 123456,
   "status": "UPLOADED",
   "ingestionJobId": null,
+  "errorCode": null,
   "createdAt": "2026-01-01T10:00:00Z",
   "updatedAt": "2026-01-01T10:00:00Z"
 }
@@ -34,12 +35,14 @@ The values above are illustrative, not real records.
 
 - `PENDING_UPLOAD`
 - `UPLOADED`
-- `PROCESSING`
+- `INDEXING`
 - `READY`
 - `FAILED`
 - `DELETING`
 
-Document status changes must be validated and idempotent where practical.
+Allowed transitions (enforced in `backend/src/clouddocs/status.py`):
+`PENDING_UPLOAD → UPLOADED → INDEXING → READY | FAILED`, and any state `→ DELETING → (record removed)`.
+Status updates are conditional writes (compare-and-set on the expected current status).
 
 ## Optional chat history table
 

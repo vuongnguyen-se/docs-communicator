@@ -9,7 +9,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 | Phase | Goal | Status |
 |---|---|---|
 | 0 | Account, tooling and Region checks; prove the AI path in a throwaway spike | In progress |
-| 1 | Secure skeleton: CDK, Cognito login, HTTP API, health Lambda, hosted frontend | Not started |
+| 1 | Secure skeleton: CDK, Cognito login, HTTP API, health Lambda, hosted frontend | Partly done (reused code) |
 | 2 | Secure PDF upload with metadata and status | Not started |
 | 3 | RAG ingestion into Bedrock Knowledge Base | Not started |
 | 4 | Grounded chat with citations | Not started |
@@ -22,7 +22,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 ## Phase 0 — Setup and validation
 
-Account and safety (one-time, kept between sessions):
+Account and safety (one-time, kept between sessions). Step-by-step guide: `docs/aws-account-setup.md`.
 - [ ] **P0-01** Secure the AWS account: root MFA, no root access keys, and a day-to-day admin identity (IAM Identity Center user preferred, or an IAM user with MFA).
   - Done when: you can sign in as the admin identity, and root has MFA.
 - [ ] **P0-02** Configure the CLI profile `clouddocs-dev`, with Region `ap-southeast-1`.
@@ -53,88 +53,88 @@ Tooling and repository:
 
 ## Phase 1 — Secure skeleton (first deploy)
 
+> **Reused code (D-012):** the backend in `backend/src/clouddocs/` already contains the business logic for upload, complete, status, delete and chat, with in-memory fakes. It has 57 passing tests. The frontend in `frontend/` has upload, list and chat components running against a mock API. What is **missing** is everything that touches AWS: CDK, the boto3 adapters, Cognito login and the real HTTP client.
+
 Repository scaffolding:
-- [ ] **P1-01** Create the folder structure (`frontend/`, `backend/`, `infrastructure/`, `scripts/`), `.env.example`, and Python tooling (venv, `ruff`, `pytest`).
-- [ ] **P1-02** Scaffold the React + TypeScript + Vite frontend with a layout shell: header, documents panel, chat panel.
+- [x] **P1-01** Backend package with tooling (`pyproject.toml`, pytest, ruff, mypy strict) and the frontend scaffold (React 19 + TS + Vite, vitest, eslint). Reused from the earlier prototype.
+- [x] **P1-02** Frontend layout shell with documents and chat panels (`App.tsx`, `DocumentList.tsx`, `Chat.tsx`) and a `MockApi` for local development.
+- [x] **P1-09** Shared backend HTTP layer (`handlers/common.py`): JSON responses, error shape, request ID logging, identity from JWT `sub` only, body-size limit. Tested.
+- [ ] **P1-01b** Add `infrastructure/` and `scripts/` folders, plus `.env.example` (no secrets) and a root README section on running tests locally.
 
 Infrastructure (CDK):
 - [ ] **P1-03** Create the CDK app skeleton: stack(s) with `Project=CloudDocsAI` tags, dev removal policies (D-002), and config through CDK context (Region, model IDs, allowed origin).
 - [ ] **P1-04** Create a Cognito User Pool with self sign-up disabled, a strong password policy and an app client without a client secret, configured for the SPA (D-004).
 - [ ] **P1-05** Create an HTTP API with a JWT authorizer, CORS for the CloudFront origin only, and default route throttling (e.g. 5 rps, burst 10).
-- [ ] **P1-06** Create a health Lambda (Python 3.12, small memory, log retention 1 week) behind public `GET /health`, plus one protected `GET /me` that returns the caller's `sub`.
+- [ ] **P1-06** Package the backend as a Lambda asset (Python 3.12, small memory, log retention 1 week). Wire up `handlers/health.py` behind public `GET /health`.
 - [ ] **P1-07** Create a private S3 site bucket with CloudFront and Origin Access Control. Deploy the built frontend with `BucketDeployment`.
 
-Frontend auth:
-- [ ] **P1-08** Add Cognito login to the frontend with the Amplify JS library (login only). Send the ID or access token in the `Authorization` header.
-
-Backend foundations:
-- [ ] **P1-09** Create a shared backend module: JSON response helpers, the error shape from `API_SPECIFICATION.md`, structured logging with request ID, and unit tests.
+Frontend auth and client:
+- [ ] **P1-08** Replace the mock sign-in with Cognito login through the Amplify JS library (login only). Add `HttpApi` implementing `ApiClient`, which sends the JWT. `createApi()` picks Mock or Http from Vite config (non-secret IDs only).
 
 Operations:
 - [ ] **P1-10** Add `scripts/deploy` and `scripts/destroy`, plus `scripts/check-teardown`, which lists resources still tagged `Project=CloudDocsAI` through the Resource Groups Tagging API.
 - [ ] **P1-11** 💰🧹 **Phase demo:**
   1. Deploy.
   2. Create a user with the CLI.
-  3. Log in and see `/me` respond.
-  4. Confirm an unauthenticated call to `/me` returns 401.
-  5. Destroy.
-  6. Run the teardown check, which should come back empty.
+  3. Log in through CloudFront.
+  4. `/health` returns ok.
+  5. Confirm an unauthenticated call to `GET /documents` returns 401.
+  6. Destroy.
+  7. Run the teardown check, which should come back empty.
 
 ---
 
 ## Phase 2 — Secure upload
 
-- [ ] **P2-01** Create a private document bucket: block public access, SSE-S3 encryption, enforce TLS, CORS for PUT from the site origin, and a lifecycle rule that deletes abandoned `uploads/` objects.
-- [ ] **P2-02** Create the DynamoDB `Documents` table (on-demand, PK/SK as in `DATABASE_DESIGN.md`, PITR off for dev).
-- [ ] **P2-03** Add `POST /documents/upload-url`:
-  - Validate name, type (`application/pdf`) and size limit.
-  - The backend generates the key `uploads/<sub>/<documentId>/<safeName>`.
-  - Use a presigned PUT that expires in 300 s.
-  - Create a record with status `PENDING_UPLOAD`.
-- [ ] **P2-04** Add `GET /documents` and `GET /documents/{id}`, always scoped to the caller's `sub`.
-- [ ] **P2-05** Frontend: file picker, size and type checks, direct PUT to S3, then a refreshed list with status badges.
-- [ ] **P2-06** Unit tests for validation, key generation and status transitions.
+Already done in code (logic + tests, no AWS yet): validation, server-generated keys, the document limit, the status state machine, the `%PDF-` magic check on complete, owner scoping, and idempotent complete.
+
+- [ ] **P2-01** CDK: private document bucket with block public access, SSE-S3 encryption, enforced TLS, CORS for POST from the site origin, and lifecycle rules (expire stale `uploads/`, abort incomplete multipart uploads).
+- [ ] **P2-02** CDK: DynamoDB `Documents` table (on-demand, PK/SK as in `DATABASE_DESIGN.md`, PITR off for dev).
+- [ ] **P2-03** Adapter `adapters/dynamodb_repo.py` implementing `DocumentRepository`. `update_status` uses a conditional write; `list` uses a Query, never a Scan. Test it with `botocore` Stubber.
+- [ ] **P2-04** Adapter `adapters/s3_storage.py` implementing `ObjectStorage`: presigned POST with `content-length-range` and `Content-Type` conditions (D-013), `head` with a ranged GET of the first bytes, and `delete`.
+- [ ] **P2-05** `container.py`: a boto3-backed `Services` factory built from env vars. Wire up the documents Lambda routes and grant least-privilege IAM (bucket prefix and table only).
+- [ ] **P2-06** Frontend `HttpApi.uploadDocument`: request the URL, then a multipart POST to S3, then `/complete`.
 - [ ] **P2-07** 💰🧹 **Phase demo:**
   - Upload a PDF and see it listed.
-  - Uploads that are not PDFs or are too large are rejected with a 4xx.
-  - User A cannot read user B's document.
+  - A non-PDF or a file over 10 MB is rejected.
+  - User B gets 404 for user A's document.
   - Destroy.
 
 ---
 
 ## Phase 3 — RAG ingestion
 
-- [ ] **P3-01** CDK: create the vector store chosen in D-007, plus the Knowledge Base, its service role (least privilege) and an S3 data source scoped to the `uploads/` prefix.
+Already done in code: the `KnowledgeBase` port, poll-on-read status refresh (`INDEXING` → `READY`/`FAILED`) and transient-error handling.
+
+- [ ] **P3-01** CDK: create the vector store chosen in D-007, plus the Knowledge Base (embedding model from D-008, fixed-size chunking), its least-privilege service role and an S3 data source scoped to `uploads/`.
 - [ ] **P3-02** CDK: add a custom resource or post-deploy script that runs the required initial data-source sync (D-006).
-- [ ] **P3-03** Add `POST /documents/{id}/ingest`:
-  - Verify that the object exists and that its key is owned by the caller.
-  - Call `IngestKnowledgeBaseDocuments` with `userId` metadata.
-  - Set status to `PROCESSING`.
-- [ ] **P3-04** Status tracking: `GET /documents/{id}` checks `GetKnowledgeBaseDocuments` while the document is `PROCESSING`, then moves it to `READY` or `FAILED`. Transitions must be idempotent.
-- [ ] **P3-05** Frontend: show "processing…" and poll with backoff until `READY` or `FAILED`.
-- [ ] **P3-06** Tests: map Bedrock document statuses to app statuses (with mocked boto3 / `botocore.stub`).
-- [ ] **P3-07** 💰🧹 **Phase demo:** upload 2 small non-sensitive PDFs, both reach `READY`, and a CLI `Retrieve` call returns their chunks. Then destroy.
+- [ ] **P3-03** Adapter `adapters/bedrock_kb.py`:
+  - `ingest`: `IngestKnowledgeBaseDocuments` with `userId` and `documentId` metadata.
+  - `index_state`: `GetKnowledgeBaseDocuments`, mapping statuses to `IndexState`.
+  - `delete`: `DeleteKnowledgeBaseDocuments`.
+  - Stubber tests.
+- [ ] **P3-04** Frontend: the existing 2 s polling becomes backoff polling (2 s → 10 s), with a clear "indexing…" label.
+- [ ] **P3-05** 💰🧹 **Phase demo:** upload 2 small non-sensitive PDFs (one English, one Vietnamese), both reach `READY`, and a CLI `Retrieve` call returns their chunks. Then destroy.
 
 ---
 
 ## Phase 4 — Grounded chat
 
-- [ ] **P4-01** Add `POST /chat`:
-  - Validate the question (length limit).
-  - Call `RetrieveAndGenerate` with a **metadata filter `userId = sub`**.
-  - Map `conversationId` to the Bedrock `sessionId`.
-- [ ] **P4-02** Map citations using only fields the service actually returned (S3 URI to file name through DynamoDB). Return an explicit "no source found" state.
-- [ ] **P4-03** Prompt template: answer only from the retrieved context, say when unsure, and ignore instructions found inside documents.
-- [ ] **P4-04** (Optional) DynamoDB chat history table, storing question, answer and citation refs only.
-- [ ] **P4-05** Frontend chat UI: message list, loading, error and empty states, and expandable citations.
-- [ ] **P4-06** Evaluation set: 5 questions with known answers, 3 unrelated questions and 1 prompt-injection PDF. Record the results in `docs/evaluation.md`.
+Already done in code: question validation, `RetrieveAndGenerate` response parsing (`services/rag.py`), citations resolved only against the caller's own documents, and the fixed "no evidence" answer.
+
+- [ ] **P4-01** `KnowledgeBase.query(question, user_id)`: add a **metadata filter `userId = sub`** so retrieval itself is scoped per user, not just the citations. Update the fakes and tests.
+- [ ] **P4-02** Adapter `query`: `RetrieveAndGenerate` with the inference profile ARN (D-008), `maxTokens` cap and a prompt template (answer only from context, say when unsure, ignore instructions inside documents).
+- [ ] **P4-03** Verify `services/rag.py` against a **real** response and fix any field-mapping differences.
+- [ ] **P4-04** (Optional) `conversationId` mapped to the Bedrock `sessionId`, plus a DynamoDB chat history table that stores question, answer and citation refs only.
+- [ ] **P4-05** Frontend `HttpApi.ask`, then polish the chat UI (message list, expandable citations).
+- [ ] **P4-06** Evaluation set: 5 questions with known answers (English and Vietnamese), 3 unrelated questions, 1 prompt-injection PDF and a 2-user isolation test. Record the results in `docs/evaluation.md`.
 - [ ] **P4-07** 💰🧹 **Phase demo:** run the end-to-end MVP for all acceptance criteria in `PROJECT_REQUIREMENTS.md` §6, then destroy.
 
 ---
 
 ## Phase 5 — Hardening
 
-- [ ] **P5-01** Add `DELETE /documents/{id}`. It deletes from the Knowledge Base (`DeleteKnowledgeBaseDocuments`), deletes the S3 object, and only then deletes the metadata. Verify the document is no longer retrievable.
+- [ ] **P5-01** Wire up and verify `DELETE /documents/{id}` (the service logic and tests already exist). It deletes from the Knowledge Base (`DeleteKnowledgeBaseDocuments`), deletes the S3 object, and only then deletes the metadata. Verify the document is no longer retrievable.
 - [ ] **P5-02** IAM review: list every Lambda role action and resource, and remove wildcards.
 - [ ] **P5-03** CloudWatch alarms for Lambda errors, API 5xx and throttles, with an SNS email topic.
 - [ ] **P5-04** Evaluate Bedrock Guardrails (cost and benefit) and record the decision.
@@ -143,7 +143,7 @@ Operations:
 
 ## Phase 6 — Advanced
 
-- [ ] **P6-01** S3 event → SQS → ingestion worker Lambda, with a DLQ (replaces the manual `/ingest` call).
+- [ ] **P6-01** S3 event → SQS → ingestion worker Lambda, with a DLQ (replaces the manual `/complete` call).
 - [ ] **P6-02** Evaluate Step Functions and record the decision.
 - [ ] **P6-03** GitHub Actions CI: lint, unit tests, frontend build and `cdk synth` on each PR.
 - [ ] **P6-04** (Optional) GitHub Actions deploy through an OIDC role, with no stored AWS keys.
@@ -155,4 +155,4 @@ Operations:
 
 | Date | Work done | AWS resources live after session? | Notes |
 |---|---|---|---|
-| 2026-11-17 | Planning, decisions, repository set up | None | — |
+| 2026-11-17 | Planning, decisions, repository set up, prototype code reviewed and reused | None | 57 backend + 6 frontend tests pass locally |

@@ -1,151 +1,78 @@
 # API Specification
 
+This contract matches the code in `backend/src/clouddocs/handlers/` and `frontend/src/api/types.ts`. If you change one, change all three.
+
 Base path example: `/api/v1`. All endpoints exchange JSON except the direct S3 upload.
 
-**Authentication:** every endpoint except `GET /health` requires `Authorization: Bearer <Cognito JWT>`. Missing or invalid tokens are rejected by API Gateway with `401`. The user ID is taken from the token's `sub` claim.
-
-## 0. Health
-
-`GET /health` (public) returns `200 {"status": "ok"}`.
-
-## 1. Create upload URL
-
-`POST /documents/upload-url`
-
-Request:
-
-```json
-{
-  "fileName": "aws-notes.pdf",
-  "contentType": "application/pdf",
-  "sizeBytes": 123456
-}
-```
-
-Response `200`:
-
-```json
-{
-  "documentId": "generated-id",
-  "uploadUrl": "short-lived-presigned-url",
-  "method": "PUT",
-  "requiredHeaders": {
-    "Content-Type": "application/pdf"
-  },
-  "expiresInSeconds": 300
-}
-```
-
-The upload URL is a temporary bearer credential. Do not log it or persist it in chat history.
-
-## 2. Complete upload / request ingestion
-
-`POST /documents/{documentId}/ingest`
-
-Request:
-
-```json
-{
-  "etag": "optional-s3-etag"
-}
-```
-
-Response `202`:
-
-```json
-{
-  "documentId": "generated-id",
-  "status": "PROCESSING",
-  "message": "Ingestion has been requested."
-}
-```
-
-The implementation must verify the object exists at the expected S3 key before starting ingestion. The exact ingestion orchestration must account for Knowledge Base data-source sync semantics and avoid overlapping jobs.
-
-## 3. List documents
-
-`GET /documents`
-
-Response `200`:
-
-```json
-{
-  "items": [
-    {
-      "documentId": "generated-id",
-      "fileName": "aws-notes.pdf",
-      "status": "READY",
-      "createdAt": "2026-01-01T10:00:00Z"
-    }
-  ]
-}
-```
-
-## 4. Get document
-
-`GET /documents/{documentId}`
-
-Response `200`:
-
-```json
-{
-  "documentId": "generated-id",
-  "fileName": "aws-notes.pdf",
-  "status": "READY",
-  "createdAt": "2026-01-01T10:00:00Z",
-  "updatedAt": "2026-01-01T10:05:00Z"
-}
-```
-
-## 5. Ask a question
-
-`POST /chat`
-
-Request:
-
-```json
-{
-  "question": "Explain the difference between SQS and SNS.",
-  "conversationId": "optional-conversation-id"
-}
-```
-
-Response `200`:
-
-```json
-{
-  "answer": "Generated answer grounded in retrieved document content.",
-  "conversationId": "conversation-id",
-  "citations": [
-    {
-      "text": "Retrieved source excerpt, if returned and appropriate to display.",
-      "sourceUri": "S3 source URI or mapped source reference, if returned",
-      "metadata": {}
-    }
-  ]
-}
-```
-
-This is an application-level contract. Map the actual Bedrock response carefully; citation fields and metadata must come from the service response. Do not fabricate a citation when none is returned.
-
-## 6. Delete document (later milestone)
-
-`DELETE /documents/{documentId}`
-
-Before implementing, define how the source object, metadata, and indexed Knowledge Base content are removed or excluded. Do not return success if only the DynamoDB metadata was deleted while the document remains retrievable.
+**Authentication:** every route except `GET /health` requires `Authorization: Bearer <Cognito JWT>`. API Gateway's JWT authorizer rejects missing or invalid tokens with `401`. The user ID is taken **only** from the token's `sub` claim.
 
 ## Error response
 
-Use a consistent shape:
-
 ```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "A concise explanation safe to show to the user.",
-    "requestId": "correlation-id"
-  }
-}
+{ "error": { "code": "VALIDATION_ERROR", "message": "Only PDF files are supported" }, "requestId": "req-1" }
 ```
 
-Use suitable HTTP status codes: `400`, `401`, `403`, `404`, `409`, `413`, `429`, and `500` as appropriate. Never return stack traces or internal credentials to the browser.
+| Status | Codes |
+|---|---|
+| 400 | `VALIDATION_ERROR` |
+| 401 | `UNAUTHORIZED` |
+| 404 | `NOT_FOUND` (also returned for other users' documents, so their existence is not revealed) |
+| 409 | `CONFLICT`, `LIMIT_EXCEEDED` |
+| 429 | Throttled by API Gateway |
+| 500 | `INTERNAL_ERROR` (no details) |
+| 503 | `UPSTREAM_UNAVAILABLE` |
+
+Never return stack traces, presigned URLs in logs, or internal identifiers such as S3 keys or owner IDs.
+
+## GET /health → 200 (public)
+`{ "status": "ok" }`
+
+## POST /documents/upload-url → 201
+Request (unknown fields are rejected):
+```json
+{ "filename": "aws-notes.pdf", "contentType": "application/pdf", "size": 120345 }
+```
+Response:
+```json
+{
+  "document": { "documentId": "doc_<32 hex>", "filename": "aws-notes.pdf", "fileSize": 120345,
+                "status": "PENDING_UPLOAD", "createdAt": "…", "updatedAt": "…", "errorCode": null },
+  "upload": { "url": "https://<bucket>.s3.<region>.amazonaws.com/", "fields": { "key": "…", "Content-Type": "application/pdf", "…": "…" } },
+  "expiresInSeconds": 300
+}
+```
+The browser POSTs the file as `multipart/form-data` to `upload.url`, sending all `fields` first and `file` last.
+
+This is a **presigned POST**, not a PUT (D-013). Its policy enforces `content-length-range` (≤ 10 MB) and `Content-Type`, which a presigned PUT cannot enforce. The server generates the key `uploads/<sub>/<documentId>.pdf`.
+
+## POST /documents/{id}/complete → 202
+1. Verifies the stored object: it exists, its real size is within the limit, and it starts with the `%PDF-` header.
+2. Calls `IngestKnowledgeBaseDocuments` with `userId` metadata.
+3. Sets the status to `INDEXING`.
+
+This call is idempotent. It returns `{ "document": {…} }` with status `INDEXING`, or `FAILED` with `errorCode` `INVALID_FILE` or `INGEST_REQUEST_FAILED`. It returns `409` if the file was not uploaded yet.
+
+## GET /documents → 200
+`{ "documents": [ … ] }`, newest first. Documents in `INDEXING` are refreshed from the Knowledge Base on read. Only a confirmed index sets `READY`.
+
+## GET /documents/{id} → 200
+`{ "document": {…} }`
+
+## DELETE /documents/{id}
+- `204` once the Knowledge Base confirms removal and the S3 object and record are deleted.
+- `202` with `{ "document": {…, "status": "DELETING"} }` while indexed content is still present. Call again later.
+
+## POST /chat/query → 200
+Request: `{ "question": "What are the key differences between SQS and SNS?" }` (1–2000 characters).
+Planned for Phase 4: an optional `conversationId`, mapped to the Bedrock `sessionId`.
+```json
+{
+  "answer": "…",
+  "citations": [ { "documentId": "doc_…", "documentName": "aws-notes.pdf", "excerpt": "…" } ],
+  "requestId": "req-1"
+}
+```
+Citations come only from `RetrieveAndGenerate` `retrievedReferences` that map to one of the **caller's own** documents. If none do, `citations` is `[]` and `answer` is a fixed "could not find relevant information" message. Never fabricate citations.
+
+## Limits (configurable through environment variables)
+10 MB per file, 5 documents per user, 2000-character questions, upload URL valid for 300 s, request body ≤ 16 KB.

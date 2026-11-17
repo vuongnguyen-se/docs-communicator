@@ -5,7 +5,9 @@
 | Area | Choice | Notes |
 |---|---|---|
 | Frontend | React + TypeScript + Vite | SPA |
-| UI | Plain CSS or a lightweight component library | Avoid unnecessary complexity |
+| UI | Plain CSS | Avoid unnecessary complexity |
+| Validation | pydantic v2 (backend) | Typed request models |
+| Tooling | pytest, ruff, mypy (strict); vitest, eslint | Run before every commit |
 | Frontend hosting | S3 + CloudFront | HTTPS delivery |
 | Region | ap-southeast-1 | D-001 |
 | Auth | Amazon Cognito User Pool + HTTP API JWT authorizer | Amplify JS used only for login UI (D-004, D-009) |
@@ -30,11 +32,13 @@ clouddocs-ai/
 │   ├── public/
 │   └── package.json
 ├── backend/
-│   ├── document_api/
-│   ├── chat_api/
-│   ├── shared/
-│   ├── tests/
-│   └── requirements.txt
+│   ├── src/clouddocs/
+│   │   ├── handlers/     # thin Lambda entry points (health, documents, chat)
+│   │   ├── services/     # business logic + ports (interfaces) to AWS
+│   │   ├── adapters/     # boto3 implementations of the ports (Phase 2+)
+│   │   └── models.py, validators.py, status.py, errors.py, config.py
+│   ├── tests/            # pytest with in-memory fakes, no AWS needed
+│   └── pyproject.toml
 ├── infrastructure/
 │   ├── app.py
 │   ├── stacks/

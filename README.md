@@ -57,6 +57,14 @@ Cognito authentication is part of the MVP (D-004). SQS-based ingestion, Step Fun
 - `SECURITY_AND_COST.md`: security baseline and cost controls.
 - `TASKS.md`: implementation checklist and progress tracker.
 - `DECISIONS.md`: architecture decision log.
+- `docs/aws-account-setup.md`: one-time AWS account, CLI and budget setup.
+
+## Run the tests locally
+
+```bash
+cd backend && python -m venv .venv && .venv/Scripts/python -m pip install -e ".[dev]" && .venv/Scripts/python -m pytest
+cd frontend && npm ci && npm test && npm run dev   # dev server uses the in-memory mock API
+```
 - `PROMPT_FOR_CODING_AGENT.md`: initial prompt to paste into your coding platform.
 
 ## Important implementation notes

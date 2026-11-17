@@ -11,11 +11,11 @@ A small number of admin-created users (portfolio MVP). Every user signs in throu
 ## 3. MVP functional requirements
 
 ### Document management
-- Upload a PDF using a short-lived S3 presigned URL.
+- Upload a PDF using a short-lived S3 presigned POST (size and type enforced by the S3 policy).
 - Validate file extension, content type, and configured maximum file size.
 - Record document metadata and processing status.
 - List uploaded documents.
-- Show statuses such as `UPLOADED`, `PROCESSING`, `READY`, and `FAILED`.
+- Show statuses such as `UPLOADED`, `INDEXING`, `READY`, and `FAILED`.
 - Allow deletion of a document and its metadata. Define and implement the corresponding Knowledge Base cleanup behavior before claiming full deletion.
 
 ### Question answering

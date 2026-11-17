@@ -47,9 +47,9 @@ The diagram is conceptual. Region: `ap-southeast-1`. Ingestion uses the Knowledg
 
 1. Browser calls `POST /documents/upload-url` with filename, content type, and size.
 2. Document Lambda validates the request and creates a document record with status `PENDING_UPLOAD`.
-3. Lambda returns a short-lived presigned S3 PUT URL and a document ID.
+3. Lambda returns a short-lived presigned S3 POST (policy limits size and type) and a document ID.
 4. Browser uploads directly to the private S3 bucket using that URL.
-5. Browser calls `POST /documents/{documentId}/ingest` (or a verified S3-event-driven workflow invokes ingestion).
+5. Browser calls `POST /documents/{documentId}/complete`. The backend checks the real size and the `%PDF-` header (a verified S3-event-driven workflow replaces this in Phase 6).
 6. Backend checks that the object exists under the caller's prefix, then calls `IngestKnowledgeBaseDocuments` for that one S3 object with `userId` metadata (D-006).
 7. Status is checked with `GetKnowledgeBaseDocuments` in a bounded, retry-safe way.
 8. Mark the document `READY` only after ingestion is confirmed complete. Handle failures explicitly.
@@ -58,7 +58,7 @@ The diagram is conceptual. Region: `ap-southeast-1`. Ingestion uses the Knowledg
 
 ## 4. Question-answering flow
 
-1. Browser sends `POST /chat`.
+1. Browser sends `POST /chat/query`.
 2. Chat Lambda validates the question and any conversation/document scope.
 3. Lambda calls Bedrock Knowledge Bases `RetrieveAndGenerate` with the configured Knowledge Base and model identifiers and a metadata filter `userId = <caller sub>`.
 4. Bedrock retrieves relevant chunks from the vector store and generates a response.

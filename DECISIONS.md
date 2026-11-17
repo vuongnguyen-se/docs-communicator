@@ -48,7 +48,7 @@ Short records of decisions that shape the project. Add a new entry instead of si
 
 ## D-007 — Vector store: Amazon S3 Vectors (preferred)
 - **Status:** Verify (P0-06)
-- **Why:** Pay-per-use with no idle compute cost, which suits D-002. S3 Vectors itself is available in ap-southeast-1. Whether **Bedrock Knowledge Bases can use S3 Vectors in ap-southeast-1** still needs confirming.
+- **Why:** Pay-per-use with no idle compute cost, which suits D-002. S3 Vectors itself is available in ap-southeast-1. AWS docs say Knowledge Bases support S3 Vectors "in all regions where both Bedrock and S3 Vectors are available" (prior research, 2026-11-14). P0-06/P0-07 confirm this by actually creating a Knowledge Base.
 - **Fallbacks, in order:**
   1. Bedrock-managed vector store option, if offered in the Region.
   2. Aurora PostgreSQL Serverless v2 with pgvector, which can scale to zero.
@@ -56,9 +56,16 @@ Short records of decisions that shape the project. Add a new entry instead of si
 
 ## D-008 — Models (to be confirmed in P0-05)
 - **Status:** Verify
-- **Generation:** A cost-efficient Anthropic Claude model on Bedrock, Haiku-class first, through an `apac.` inference profile if needed.
-- **Embeddings:** Amazon Titan Text Embeddings V2, or a Cohere Embed model if Titan is unavailable in the Region.
+- **Prior research:** The earlier prototype checked AWS docs on 2026-11-14 for `ap-southeast-1`. Re-check it with the CLI in P0-05.
+  - **Amazon Titan Text Embeddings V2 is *not* available in Singapore.** Do not plan on it.
+  - **Cohere Embed Multilingual v3** (`cohere.embed-multilingual-v3`, 1024 dims, float) is available in the Region. **Chosen**, because the PDFs may be English *and* Vietnamese.
+  - Generation is not offered in the Region directly. It goes through cross-Region inference profiles:
+    - Amazon Nova Lite through `apac.amazon.nova-lite-v1:0`: cheap, and data stays within APAC.
+    - Claude Haiku through a `global.` profile: better quality, especially in Vietnamese, but data may be processed outside APAC.
+- **Plan:** Start with Nova Lite (`apac.`). Switch to Claude Haiku through one config value if Vietnamese answer quality fails the P4-06 evaluation.
+- `RetrieveAndGenerate` must receive the **inference profile ARN**, not a bare model ID.
 - Model IDs and ARNs live in configuration (CDK context or env vars), never hard-coded in Lambda code.
+- **Chunking:** fixed-size (~300 tokens, 10–20% overlap). Avoid hierarchical chunking, because S3 Vectors has a small non-filterable metadata limit.
 
 ## D-009 — Frontend hosting: S3 (private) + CloudFront with Origin Access Control
 - **Status:** Accepted
@@ -82,4 +89,18 @@ The owner shared a reference AWS diagram: Amplify, REST API, Cognito, an extract
 ## D-011 — Source control
 - **Status:** Accepted
 - **Remote:** `github.com/vuongnguyen-se/docs-communicator`. The repository is **public**, so never commit account IDs, ARNs with account IDs, `.env` files or `cdk.context.json` values that contain secrets.
-- **Old code:** It was replaced by a normal commit, without force-pushing, so it is still recoverable from git history.
+- **Old code:** It was first removed with a normal commit, without force-pushing. After review it was restored (see D-012).
+
+## D-012 — Reuse the earlier prototype code
+- **Status:** Accepted (2026-11-17)
+- **Why:** The prototype's `backend/` and `frontend/` already implement the documented design: JWT-`sub` identity, server-generated keys, the status state machine, per-document direct ingestion behind a port, the safe delete flow, and citations resolved only against owned documents. Locally, 57 backend tests pass, as do ruff and mypy (strict). The frontend has 6 tests and builds and lints cleanly.
+- **What it does not have:** AWS adapters (boto3), CDK infrastructure, Cognito login and the real HTTP client. These are now the Phase 1–4 tasks.
+- **Not reused:**
+  - `PROJECT_SPEC.md` and the old `docs/`. Their useful findings were moved into D-008 and D-013.
+  - Terraform. The project uses CDK (D-003).
+- **Code wins where it is stricter:** the API contract and status names now follow the code (`/documents/{id}/complete`, `/chat/query`, status `INDEXING`).
+
+## D-013 — Presigned POST (not PUT) for uploads
+- **Status:** Accepted
+- **Why:** A presigned POST policy can enforce `content-length-range` (≤ 10 MB) and `Content-Type` at S3 itself. A presigned PUT cannot limit size.
+- **Defence in depth:** `/complete` also checks the real object size and the `%PDF-` header.
