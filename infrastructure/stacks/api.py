@@ -27,6 +27,7 @@ class Api(Construct):
         construct_id: str,
         *,
         config: Config,
+        allowed_origins: list[str],
         user_pool: cognito.IUserPool,
         user_pool_client: cognito.IUserPoolClient,
     ) -> None:
@@ -41,7 +42,7 @@ class Api(Construct):
                 "CognitoAuthorizer", user_pool, user_pool_clients=[user_pool_client]
             ),
             cors_preflight=apigw.CorsPreflightOptions(
-                allow_origins=config.allowed_origins,
+                allow_origins=allowed_origins,
                 allow_methods=[
                     apigw.CorsHttpMethod.GET,
                     apigw.CorsHttpMethod.POST,

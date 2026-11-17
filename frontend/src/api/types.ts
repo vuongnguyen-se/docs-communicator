@@ -31,6 +31,8 @@ export interface ChatAnswer {
 }
 
 export interface ApiClient {
+  /** Caller's user id as seen by the backend (proves auth end to end). */
+  whoAmI(): Promise<string>;
   listDocuments(): Promise<DocumentInfo[]>;
   getDocument(id: string): Promise<DocumentInfo>;
   /** Runs the full flow: presigned URL -> direct upload -> complete. */

@@ -71,6 +71,9 @@ Short records of decisions that shape the project. Add a new entry instead of si
 - **Status:** Accepted
 - **Why:** This follows `TECH_STACK.md`. The reference diagram uses Amplify Hosting, which also works, but S3 + CloudFront is defined fully in CDK and is torn down with everything else.
 - **Libraries:** The frontend uses the Amplify JS library **only** for the Cognito login UI and tokens. This does not use Amplify Hosting.
+- **Runtime config:** CDK writes `/config.json` (API URL, Region, user pool and client IDs) at deploy time. One build works for any deployment, and no IDs are committed.
+- **CSP `connect-src`** allows `*.execute-api.<region>.amazonaws.com` rather than the exact API host. Naming the exact host would create a CloudFront ↔ API dependency cycle, because the API's CORS needs the CloudFront domain.
+- **TLS:** the default `*.cloudfront.net` certificate has a fixed TLS policy. Enforcing TLS 1.2+ would need a custom domain and ACM certificate, which is out of scope for the MVP.
 
 ## D-010 — How the reference diagram maps to this project
 The owner shared a reference AWS diagram: Amplify, REST API, Cognito, an extract Lambda, SQS, an embed Lambda, vector dumps in S3, Bedrock and DynamoDB. Mapping:

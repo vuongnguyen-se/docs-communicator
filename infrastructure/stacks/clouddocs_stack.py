@@ -10,6 +10,7 @@ from constructs import Construct
 from .api import Api
 from .auth import Auth
 from .config import Config
+from .web import Web
 
 
 class CloudDocsStack(Stack):
@@ -17,15 +18,28 @@ class CloudDocsStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         auth = Auth(self, "Auth")
+        # Web first: the API's CORS needs the CloudFront domain.
+        web = Web(self, "Web", region=config.region)
         api = Api(
             self,
             "Api",
             config=config,
+            allowed_origins=[*config.allowed_origins, web.url],
             user_pool=auth.user_pool,
             user_pool_client=auth.client,
         )
+        web.deploy_site(
+            {
+                "mode": "http",
+                "apiUrl": api.url,
+                "region": self.region,
+                "userPoolId": auth.user_pool.user_pool_id,
+                "userPoolClientId": auth.client.user_pool_client_id,
+            }
+        )
 
-        # Non-secret identifiers the frontend needs (copied into frontend/.env.local).
+        # Non-secret identifiers (also served to the browser as /config.json).
+        CfnOutput(self, "WebUrl", value=web.url)
         CfnOutput(self, "ApiUrl", value=api.url)
         CfnOutput(self, "UserPoolId", value=auth.user_pool.user_pool_id)
         CfnOutput(self, "UserPoolClientId", value=auth.client.user_pool_client_id)

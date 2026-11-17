@@ -24,6 +24,11 @@ export class MockApi implements ApiClient {
     return rest;
   }
 
+  async whoAmI(): Promise<string> {
+    await this.delay();
+    return "mock-user";
+  }
+
   async listDocuments(): Promise<DocumentInfo[]> {
     await this.delay();
     return [...this.docs.values()].map((d) => this.view(d));

@@ -66,17 +66,17 @@ Infrastructure (CDK). `[x]` here means synthesized and covered by `infrastructur
 - [x] **P1-04** Create a Cognito User Pool with self sign-up disabled, a strong password policy and an app client without a client secret, configured for the SPA (D-004).
 - [x] **P1-05** Create an HTTP API with a JWT authorizer, CORS for the CloudFront origin only, and default route throttling (e.g. 5 rps, burst 10).
 - [x] **P1-06** Package the backend as a Lambda asset (Python 3.12 arm64, Docker-free pip bundling of Linux wheels, log retention 1 week). Wire up public `GET /health` and protected `GET /me` (returns the caller's `sub`).
-- [ ] **P1-07** Create a private S3 site bucket with CloudFront and Origin Access Control. Deploy the built frontend with `BucketDeployment`.
+- [x] **P1-07** Create a private S3 site bucket with CloudFront and Origin Access Control (HTTPS redirect, CSP and security headers). Deploy the built frontend plus a deploy-time `/config.json` with `BucketDeployment`.
 
 Frontend auth and client:
-- [ ] **P1-08** Replace the mock sign-in with Cognito login through the Amplify JS library (login only). Add `HttpApi` implementing `ApiClient`, which sends the JWT. `createApi()` picks Mock or Http from Vite config (non-secret IDs only).
+- [x] **P1-08** (13 frontend tests; real login verified in P1-11) Replace the mock sign-in with Cognito login through the Amplify JS library (login only). Add `HttpApi` implementing `ApiClient`, which sends the JWT. The app picks Mock or Http from runtime config: `/config.json` when deployed, `VITE_` variables in `npm run dev`.
 
 Operations:
 - [~] **P1-10** (written and syntax-checked, not yet run against AWS) Add `scripts/deploy` and `scripts/destroy`, plus `scripts/check-teardown`, which lists resources still tagged `Project=CloudDocsAI` through the Resource Groups Tagging API.
 - [ ] **P1-11** 💰🧹 **Phase demo:**
   1. Deploy.
   2. Create a user with the CLI.
-  3. Log in through CloudFront.
+  3. Open `WebUrl`, sign in with the temporary password and set a new one. The header shows "API connected (user id …)".
   4. `/health` returns ok.
   5. `GET /me` with the token returns your `sub`; without a token it returns 401.
   6. Destroy.
@@ -157,3 +157,4 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 |---|---|---|---|
 | 2026-11-17 | Planning, decisions, repository set up, prototype code reviewed and reused | None | 57 backend + 6 frontend tests pass locally |
 | 2026-11-17 | CDK app: Cognito, HTTP API + JWT authorizer + throttling, health and me Lambdas, scripts | None (synth only) | 10 infra tests, `cdk synth` OK, 59 backend tests |
+| 2026-11-17 | S3 + CloudFront (OAC, CSP), runtime `/config.json`, Cognito login (Amplify Authenticator), real `HttpApi` client | None (synth only) | 13 infra + 13 frontend + 59 backend tests |

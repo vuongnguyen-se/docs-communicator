@@ -72,18 +72,12 @@ def test_stage_is_throttled(template: Template) -> None:
     )
 
 
-def test_cors_allows_only_configured_origins(template: Template) -> None:
-    template.has_resource_properties(
-        "AWS::ApiGatewayV2::Api",
-        {"CorsConfiguration": Match.object_like({"AllowOrigins": ["http://localhost:5173"]})},
-    )
-
-
-def test_lambdas_use_python312_arm64(template: Template) -> None:
-    template.resource_count_is("AWS::Lambda::Function", 2)
-    template.all_resources_properties(
-        "AWS::Lambda::Function", {"Runtime": "python3.12", "Architectures": ["arm64"]}
-    )
+def test_app_lambdas_use_python312_arm64(template: Template) -> None:
+    for name in ("HealthFunction", "MeFunction"):
+        fns = {k: v for k, v in template.find_resources("AWS::Lambda::Function").items() if name in k}
+        assert len(fns) == 1, name
+        props = next(iter(fns.values()))["Properties"]
+        assert props["Runtime"] == "python3.12" and props["Architectures"] == ["arm64"]
 
 
 def test_log_groups_have_short_retention(template: Template) -> None:
@@ -102,3 +96,53 @@ def test_resources_are_tagged(template: Template) -> None:
         "AWS::Lambda::Function",
         {"Tags": Match.array_with([{"Key": "Project", "Value": "CloudDocsAI"}])},
     )
+
+
+def test_site_bucket_is_private_and_auto_deleted(template: Template) -> None:
+    template.has_resource_properties(
+        "AWS::S3::Bucket",
+        {
+            "PublicAccessBlockConfiguration": {
+                "BlockPublicAcls": True,
+                "BlockPublicPolicy": True,
+                "IgnorePublicAcls": True,
+                "RestrictPublicBuckets": True,
+            },
+            "Tags": Match.array_with([{"Key": "aws-cdk:auto-delete-objects", "Value": "true"}]),
+        },
+    )
+
+
+def test_cloudfront_uses_oac_https_and_security_headers(template: Template) -> None:
+    template.resource_count_is("AWS::CloudFront::OriginAccessControl", 1)
+    template.has_resource_properties(
+        "AWS::CloudFront::Distribution",
+        {
+            "DistributionConfig": Match.object_like(
+                {
+                    "DefaultRootObject": "index.html",
+                    "DefaultCacheBehavior": Match.object_like(
+                        {"ViewerProtocolPolicy": "redirect-to-https"}
+                    ),
+                }
+            )
+        },
+    )
+    policy = next(iter(template.find_resources("AWS::CloudFront::ResponseHeadersPolicy").values()))
+    sec = policy["Properties"]["ResponseHeadersPolicyConfig"]["SecurityHeadersConfig"]
+    csp = sec["ContentSecurityPolicy"]["ContentSecurityPolicy"]
+    assert "frame-ancestors 'none'" in csp and "script-src 'self'" in csp
+    assert "https://cognito-idp.ap-southeast-1.amazonaws.com" in csp
+    assert sec["FrameOptions"]["FrameOption"] == "DENY"
+
+
+def test_api_cors_allows_only_configured_and_cloudfront_origins(template: Template) -> None:
+    api = next(iter(template.find_resources("AWS::ApiGatewayV2::Api").values()))
+    origins = api["Properties"]["CorsConfiguration"]["AllowOrigins"]
+    assert len(origins) == 2 and "*" not in origins
+    assert "http://localhost:5173" in origins
+    assert any(isinstance(o, dict) for o in origins), "CloudFront domain (a CFN reference) must be allowed"
+
+
+def test_site_deployment_writes_runtime_config(template: Template) -> None:
+    template.resource_count_is("Custom::CDKBucketDeployment", 1)
