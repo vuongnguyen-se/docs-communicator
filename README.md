@@ -64,6 +64,17 @@ Cognito authentication is part of the MVP (D-004). SQS-based ingestion, Step Fun
 ```bash
 cd backend && python -m venv .venv && .venv/Scripts/python -m pip install -e ".[dev]" && .venv/Scripts/python -m pytest
 cd frontend && npm ci && npm test && npm run dev   # dev server uses the in-memory mock API
+cd infrastructure && python -m venv .venv && .venv/Scripts/python -m pip install -r requirements-dev.txt && .venv/Scripts/python -m pytest
+```
+
+## Deploy and tear down (PowerShell, after `docs/aws-account-setup.md`)
+
+```powershell
+aws sso login --profile clouddocs-dev
+powershell -ExecutionPolicy Bypass -File scripts\deploy.ps1
+powershell -ExecutionPolicy Bypass -File scripts\create-user.ps1 -Email you@example.com
+# ... demo ...
+powershell -ExecutionPolicy Bypass -File scripts\destroy.ps1   # always, at the end of the session
 ```
 - `PROMPT_FOR_CODING_AGENT.md`: initial prompt to paste into your coding platform.
 

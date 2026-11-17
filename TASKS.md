@@ -44,7 +44,7 @@ Proof of concept (💰 small, 🧹 delete the same day):
   - Done when: an answer with a citation came back, D-006 is updated, observed cost is noted, and all spike resources are deleted.
 
 Tooling and repository:
-- [ ] **P0-08** Install the AWS CDK CLI (`npm i -g aws-cdk`). Run `cdk bootstrap aws://<account>/ap-southeast-1 --profile clouddocs-dev` 💰 (tiny).
+- [~] **P0-08** Install the AWS CDK CLI (CLI 2.1148.1 installed 2026-11-17; bootstrap waits for P0-02) (`npm i -g aws-cdk`). Run `cdk bootstrap aws://<account>/ap-southeast-1 --profile clouddocs-dev` 💰 (tiny).
   - Done when: `cdk --version` works and the `CDKToolkit` stack exists.
 - [x] **P0-09** Initialize the local git repository and connect it to `github.com/vuongnguyen-se/docs-communicator`. Replace the old code with a normal commit (D-011).
 - [x] **P0-10** Record decisions (`DECISIONS.md`) and align the docs with Region, auth and teardown choices.
@@ -59,26 +59,26 @@ Repository scaffolding:
 - [x] **P1-01** Backend package with tooling (`pyproject.toml`, pytest, ruff, mypy strict) and the frontend scaffold (React 19 + TS + Vite, vitest, eslint). Reused from the earlier prototype.
 - [x] **P1-02** Frontend layout shell with documents and chat panels (`App.tsx`, `DocumentList.tsx`, `Chat.tsx`) and a `MockApi` for local development.
 - [x] **P1-09** Shared backend HTTP layer (`handlers/common.py`): JSON responses, error shape, request ID logging, identity from JWT `sub` only, body-size limit. Tested.
-- [ ] **P1-01b** Add `infrastructure/` and `scripts/` folders, plus `.env.example` (no secrets) and a root README section on running tests locally.
+- [x] **P1-01b** Add `infrastructure/` and `scripts/` folders, plus `frontend/.env.example` (no secrets) and a README section on running tests locally.
 
-Infrastructure (CDK):
-- [ ] **P1-03** Create the CDK app skeleton: stack(s) with `Project=CloudDocsAI` tags, dev removal policies (D-002), and config through CDK context (Region, model IDs, allowed origin).
-- [ ] **P1-04** Create a Cognito User Pool with self sign-up disabled, a strong password policy and an app client without a client secret, configured for the SPA (D-004).
-- [ ] **P1-05** Create an HTTP API with a JWT authorizer, CORS for the CloudFront origin only, and default route throttling (e.g. 5 rps, burst 10).
-- [ ] **P1-06** Package the backend as a Lambda asset (Python 3.12, small memory, log retention 1 week). Wire up `handlers/health.py` behind public `GET /health`.
+Infrastructure (CDK). `[x]` here means synthesized and covered by `infrastructure/tests`. A real deploy is verified in P1-11.
+- [x] **P1-03** Create the CDK app skeleton: stack(s) with `Project=CloudDocsAI` tags, dev removal policies (D-002), and config through CDK context (Region, model IDs, allowed origin).
+- [x] **P1-04** Create a Cognito User Pool with self sign-up disabled, a strong password policy and an app client without a client secret, configured for the SPA (D-004).
+- [x] **P1-05** Create an HTTP API with a JWT authorizer, CORS for the CloudFront origin only, and default route throttling (e.g. 5 rps, burst 10).
+- [x] **P1-06** Package the backend as a Lambda asset (Python 3.12 arm64, Docker-free pip bundling of Linux wheels, log retention 1 week). Wire up public `GET /health` and protected `GET /me` (returns the caller's `sub`).
 - [ ] **P1-07** Create a private S3 site bucket with CloudFront and Origin Access Control. Deploy the built frontend with `BucketDeployment`.
 
 Frontend auth and client:
 - [ ] **P1-08** Replace the mock sign-in with Cognito login through the Amplify JS library (login only). Add `HttpApi` implementing `ApiClient`, which sends the JWT. `createApi()` picks Mock or Http from Vite config (non-secret IDs only).
 
 Operations:
-- [ ] **P1-10** Add `scripts/deploy` and `scripts/destroy`, plus `scripts/check-teardown`, which lists resources still tagged `Project=CloudDocsAI` through the Resource Groups Tagging API.
+- [~] **P1-10** (written and syntax-checked, not yet run against AWS) Add `scripts/deploy` and `scripts/destroy`, plus `scripts/check-teardown`, which lists resources still tagged `Project=CloudDocsAI` through the Resource Groups Tagging API.
 - [ ] **P1-11** 💰🧹 **Phase demo:**
   1. Deploy.
   2. Create a user with the CLI.
   3. Log in through CloudFront.
   4. `/health` returns ok.
-  5. Confirm an unauthenticated call to `GET /documents` returns 401.
+  5. `GET /me` with the token returns your `sub`; without a token it returns 401.
   6. Destroy.
   7. Run the teardown check, which should come back empty.
 
@@ -156,3 +156,4 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 | Date | Work done | AWS resources live after session? | Notes |
 |---|---|---|---|
 | 2026-11-17 | Planning, decisions, repository set up, prototype code reviewed and reused | None | 57 backend + 6 frontend tests pass locally |
+| 2026-11-17 | CDK app: Cognito, HTTP API + JWT authorizer + throttling, health and me Lambdas, scripts | None (synth only) | 10 infra tests, `cdk synth` OK, 59 backend tests |
