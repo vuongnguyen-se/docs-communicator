@@ -62,6 +62,13 @@ Short records of decisions that shape the project. Add a new entry instead of si
   - Generation is not offered in the Region directly. It goes through cross-Region inference profiles:
     - Amazon Nova Lite through `apac.amazon.nova-lite-v1:0`: cheap, and data stays within APAC.
     - Claude Haiku through a `global.` profile: better quality, especially in Vietnamese, but data may be processed outside APAC.
+- **CLI check, 2026-11-18** (`list-foundation-models`, `list-inference-profiles`, `get-foundation-model-availability` in ap-southeast-1):
+  - `cohere.embed-multilingual-v3`: on-demand **in-region**, authorized. Titan embeddings are not listed (confirmed).
+  - `apac.amazon.nova-lite-v1:0`: inference profile ACTIVE, authorized, agreement available.
+  - `global.anthropic.claude-haiku-5-5`: only a `global.` profile, authorized.
+  - `anthropic.claude-sonnet-5`: on-demand **in-region**. This is the option if data must stay in Singapore, at a higher price.
+  - Cohere and Anthropic show `agreementAvailability: NOT_AVAILABLE`. Expect a Marketplace agreement to be created on first use. A tiny test call confirms it (P0-05).
+  - The S3 Vectors API answers in ap-southeast-1 (`list-vector-buckets` returned no buckets).
 - **Plan:** Start with Nova Lite (`apac.`). Switch to Claude Haiku through one config value if Vietnamese answer quality fails the P4-06 evaluation.
 - `RetrieveAndGenerate` must receive the **inference profile ARN**, not a bare model ID.
 - Model IDs and ARNs live in configuration (CDK context or env vars), never hard-coded in Lambda code.

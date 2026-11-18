@@ -23,20 +23,20 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Phase 0 — Setup and validation
 
 Account and safety (one-time, kept between sessions). Step-by-step guide: `docs/aws-account-setup.md`.
-- [ ] **P0-01** Secure the AWS account: root MFA, no root access keys, and a day-to-day admin identity (IAM Identity Center user preferred, or an IAM user with MFA).
+- [x] **P0-01** (2026-11-18: root MFA, no root keys, Identity Center user `vuong-admin` with MFA, single-Region instance in ap-southeast-1) Secure the AWS account: root MFA, no root access keys, and a day-to-day admin identity (IAM Identity Center user preferred, or an IAM user with MFA).
   - Done when: you can sign in as the admin identity, and root has MFA.
-- [ ] **P0-02** Configure the CLI profile `clouddocs-dev`, with Region `ap-southeast-1`.
+- [x] **P0-02** (2026-11-18: SSO profile verified with `get-caller-identity`) Configure the CLI profile `clouddocs-dev`, with Region `ap-southeast-1`.
   - Done when: `aws sts get-caller-identity --profile clouddocs-dev` returns the admin identity.
-- [ ] **P0-03** Create an AWS Budget (e.g. USD 10/month) with email alerts at 50%, 80% and 100% (actual) and 100% (forecasted).
+- [~] **P0-03** (2026-11-18: `clouddocs-monthly` USD 10, alerts at 50%/100% actual and 80% forecast; the email still needs verifying) Create an AWS Budget (e.g. USD 10/month) with email alerts at 50%, 80% and 100% (actual) and 100% (forecasted).
   - Done when: the budget is visible and the alert email is confirmed.
 - [ ] **P0-04** Activate the cost allocation tag `Project` in the Billing console.
   - Done when: the tag shows as active. It can take up to 24h to appear after the first tagged resource exists.
 
 Region and model checks (read-only, no cost):
-- [ ] **P0-05** List the Bedrock models and inference profiles in `ap-southeast-1`. Choose a generation model and an embedding model, then request model access or submit the Anthropic use-case form (D-008).
+- [~] **P0-05** (2026-11-18: listed and authorized, see D-008; a first test call is still pending) List the Bedrock models and inference profiles in `ap-southeast-1`. Choose a generation model and an embedding model, then request model access or submit the Anthropic use-case form (D-008).
   - Commands: `aws bedrock list-foundation-models --region ap-southeast-1`, `aws bedrock list-inference-profiles --region ap-southeast-1`.
   - Done when: both model IDs are recorded in D-008 and access shows **Granted**.
-- [ ] **P0-06** Confirm which Knowledge Base vector stores are supported in `ap-southeast-1`, S3 Vectors first (D-007).
+- [~] **P0-06** (2026-11-18: S3 Vectors API is reachable in the Region; Knowledge Base support is proven in P0-07) Confirm which Knowledge Base vector stores are supported in `ap-southeast-1`, S3 Vectors first (D-007).
   - Done when: D-007 is updated to `Accepted` with the chosen store.
 
 Proof of concept (💰 small, 🧹 delete the same day):
