@@ -44,7 +44,7 @@ Proof of concept (💰 small, 🧹 delete the same day):
   - Done when: an answer with a citation came back, D-006 is updated, observed cost is noted, and all spike resources are deleted.
 
 Tooling and repository:
-- [~] **P0-08** Install the AWS CDK CLI (CLI 2.1148.1 installed 2026-11-17; bootstrap waits for P0-02) (`npm i -g aws-cdk`). Run `cdk bootstrap aws://<account>/ap-southeast-1 --profile clouddocs-dev` 💰 (tiny).
+- [x] **P0-08** (2026-11-18: CLI 2.1148.1; `CDKToolkit` bootstrapped in ap-southeast-1, tagged `Project=CloudDocsAI-Bootstrap` so the teardown check ignores it) Install the AWS CDK CLI (`npm i -g aws-cdk`). Run `cdk bootstrap aws://<account>/ap-southeast-1 --profile clouddocs-dev` 💰 (tiny).
   - Done when: `cdk --version` works and the `CDKToolkit` stack exists.
 - [x] **P0-09** Initialize the local git repository and connect it to `github.com/vuongnguyen-se/docs-communicator`. Replace the old code with a normal commit (D-011).
 - [x] **P0-10** Record decisions (`DECISIONS.md`) and align the docs with Region, auth and teardown choices.
