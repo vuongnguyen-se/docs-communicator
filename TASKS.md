@@ -27,7 +27,7 @@ Account and safety (one-time, kept between sessions). Step-by-step guide: `docs/
   - Done when: you can sign in as the admin identity, and root has MFA.
 - [x] **P0-02** (2026-11-18: SSO profile verified with `get-caller-identity`) Configure the CLI profile `clouddocs-dev`, with Region `ap-southeast-1`.
   - Done when: `aws sts get-caller-identity --profile clouddocs-dev` returns the admin identity.
-- [~] **P0-03** (2026-11-18: `clouddocs-monthly` USD 10, alerts at 50%/100% actual and 80% forecast; the email still needs verifying) Create an AWS Budget (e.g. USD 10/month) with email alerts at 50%, 80% and 100% (actual) and 100% (forecasted).
+- [x] **P0-03** (2026-11-18: `clouddocs-monthly` USD 10, alerts at 50%/100% actual and 80% forecast; recipient Active (legacy, already verified)) Create an AWS Budget (e.g. USD 10/month) with email alerts at 50%, 80% and 100% (actual) and 100% (forecasted).
   - Done when: the budget is visible and the alert email is confirmed.
 - [ ] **P0-04** Activate the cost allocation tag `Project` in the Billing console.
   - Done when: the tag shows as active. It can take up to 24h to appear after the first tagged resource exists.
