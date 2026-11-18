@@ -9,7 +9,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 | Phase | Goal | Status |
 |---|---|---|
 | 0 | Account, tooling and Region checks; prove the AI path in a throwaway spike | In progress |
-| 1 | Secure skeleton: CDK, Cognito login, HTTP API, health Lambda, hosted frontend | Partly done (reused code) |
+| 1 | Secure skeleton: CDK, Cognito login, HTTP API, health Lambda, hosted frontend | Code done; waiting on deploy (P1-11) |
 | 2 | Secure PDF upload with metadata and status | Not started |
 | 3 | RAG ingestion into Bedrock Knowledge Base | Not started |
 | 4 | Grounded chat with citations | Not started |
@@ -93,7 +93,7 @@ Already done in code (logic + tests, no AWS yet): validation, server-generated k
 - [ ] **P2-03** Adapter `adapters/dynamodb_repo.py` implementing `DocumentRepository`. `update_status` uses a conditional write; `list` uses a Query, never a Scan. Test it with `botocore` Stubber.
 - [ ] **P2-04** Adapter `adapters/s3_storage.py` implementing `ObjectStorage`: presigned POST with `content-length-range` and `Content-Type` conditions (D-013), `head` with a ranged GET of the first bytes, and `delete`.
 - [ ] **P2-05** `container.py`: a boto3-backed `Services` factory built from env vars. Wire up the documents Lambda routes and grant least-privilege IAM (bucket prefix and table only).
-- [ ] **P2-06** Frontend `HttpApi.uploadDocument`: request the URL, then a multipart POST to S3, then `/complete`.
+- [x] **P2-06** Frontend `HttpApi.uploadDocument`: request the URL, then a multipart POST to S3, then `/complete`. Built and unit-tested with P1-08; verified for real in P2-07.
 - [ ] **P2-07** 💰🧹 **Phase demo:**
   - Upload a PDF and see it listed.
   - A non-PDF or a file over 10 MB is rejected.
@@ -126,7 +126,7 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 - [ ] **P4-02** Adapter `query`: `RetrieveAndGenerate` with the inference profile ARN (D-008), `maxTokens` cap and a prompt template (answer only from context, say when unsure, ignore instructions inside documents).
 - [ ] **P4-03** Verify `services/rag.py` against a **real** response and fix any field-mapping differences.
 - [ ] **P4-04** (Optional) `conversationId` mapped to the Bedrock `sessionId`, plus a DynamoDB chat history table that stores question, answer and citation refs only.
-- [ ] **P4-05** Frontend `HttpApi.ask`, then polish the chat UI (message list, expandable citations).
+- [~] **P4-05** Frontend `HttpApi.ask` (done with P1-08), then polish the chat UI (message list, expandable citations).
 - [ ] **P4-06** Evaluation set: 5 questions with known answers (English and Vietnamese), 3 unrelated questions, 1 prompt-injection PDF and a 2-user isolation test. Record the results in `docs/evaluation.md`.
 - [ ] **P4-07** 💰🧹 **Phase demo:** run the end-to-end MVP for all acceptance criteria in `PROJECT_REQUIREMENTS.md` §6, then destroy.
 
