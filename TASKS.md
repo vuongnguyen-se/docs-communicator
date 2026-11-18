@@ -33,7 +33,7 @@ Account and safety (one-time, kept between sessions). Step-by-step guide: `docs/
   - Done when: the tag shows as active. It can take up to 24h to appear after the first tagged resource exists.
 
 Region and model checks (read-only, no cost):
-- [~] **P0-05** (2026-11-18: listed and authorized, see D-008; a first test call is still pending) List the Bedrock models and inference profiles in `ap-southeast-1`. Choose a generation model and an embedding model, then request model access or submit the Anthropic use-case form (D-008).
+- [~] **P0-05** (2026-11-18: Cohere embed and Nova Lite test calls OK; Claude Haiku needs the Anthropic use-case form, see D-008) List the Bedrock models and inference profiles in `ap-southeast-1`. Choose a generation model and an embedding model, then request model access or submit the Anthropic use-case form (D-008).
   - Commands: `aws bedrock list-foundation-models --region ap-southeast-1`, `aws bedrock list-inference-profiles --region ap-southeast-1`.
   - Done when: both model IDs are recorded in D-008 and access shows **Granted**.
 - [~] **P0-06** (2026-11-18: S3 Vectors API is reachable in the Region; Knowledge Base support is proven in P0-07) Confirm which Knowledge Base vector stores are supported in `ap-southeast-1`, S3 Vectors first (D-007).

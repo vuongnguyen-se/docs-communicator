@@ -69,6 +69,10 @@ Short records of decisions that shape the project. Add a new entry instead of si
   - `anthropic.claude-sonnet-5`: on-demand **in-region**. This is the option if data must stay in Singapore, at a higher price.
   - Cohere and Anthropic show `agreementAvailability: NOT_AVAILABLE`. Expect a Marketplace agreement to be created on first use. A tiny test call confirms it (P0-05).
   - The S3 Vectors API answers in ap-southeast-1 (`list-vector-buckets` returned no buckets).
+- **Test calls, 2026-11-18:**
+  - Cohere Embed Multilingual v3 ✅ (Vietnamese input, 1024-dim vector).
+  - `apac.amazon.nova-lite-v1:0` ✅.
+  - `global.anthropic.claude-haiku-5-5` ❌ `AccessDeniedException: ... not available for this account`. Needs the Anthropic first-time-use form in the Bedrock console. This does not block the MVP, because Nova Lite is the default.
 - **Plan:** Start with Nova Lite (`apac.`). Switch to Claude Haiku through one config value if Vietnamese answer quality fails the P4-06 evaluation.
 - `RetrieveAndGenerate` must receive the **inference profile ARN**, not a bare model ID.
 - Model IDs and ARNs live in configuration (CDK context or env vars), never hard-coded in Lambda code.
