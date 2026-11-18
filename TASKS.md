@@ -8,8 +8,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 | Phase | Goal | Status |
 |---|---|---|
-| 0 | Account, tooling and Region checks; prove the AI path in a throwaway spike | In progress |
-| 1 | Secure skeleton: CDK, Cognito login, HTTP API, health Lambda, hosted frontend | Code done; waiting on deploy (P1-11) |
+| 0 | Account, tooling and Region checks; prove the AI path in a throwaway spike | Mostly done (P0-04 tag, P0-06/07 spike left) |
+| 1 | Secure skeleton: CDK, Cognito login, HTTP API, health Lambda, hosted frontend | ✅ Done (2026-11-18) |
 | 2 | Secure PDF upload with metadata and status | Not started |
 | 3 | RAG ingestion into Bedrock Knowledge Base | Not started |
 | 4 | Grounded chat with citations | Not started |
@@ -72,8 +72,8 @@ Frontend auth and client:
 - [x] **P1-08** (13 frontend tests; real login verified in P1-11) Replace the mock sign-in with Cognito login through the Amplify JS library (login only). Add `HttpApi` implementing `ApiClient`, which sends the JWT. The app picks Mock or Http from runtime config: `/config.json` when deployed, `VITE_` variables in `npm run dev`.
 
 Operations:
-- [~] **P1-10** (written and syntax-checked, not yet run against AWS) Add `scripts/deploy` and `scripts/destroy`, plus `scripts/check-teardown`, which lists resources still tagged `Project=CloudDocsAI` through the Resource Groups Tagging API.
-- [ ] **P1-11** 💰🧹 **Phase demo:**
+- [x] **P1-10** (2026-11-18: run against AWS; teardown check improved after the first real destroy, see session log) Add `scripts/deploy` and `scripts/destroy`, plus `scripts/check-teardown`, which lists resources still tagged `Project=CloudDocsAI` through the Resource Groups Tagging API.
+- [x] **P1-11** 💰🧹 (2026-11-18: deploy in 4.5 min, 9/9 smoke checks, login and "API connected" confirmed by owner, destroyed, teardown check passed) **Phase demo:**
   1. Deploy.
   2. Create a user with the CLI.
   3. Open `WebUrl`, sign in with the temporary password and set a new one. The header shows "API connected (user id …)".
@@ -132,6 +132,16 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 
 ---
 
+## UI design track (frontend only, no AWS cost; can run in parallel using mock mode)
+
+- [ ] **UI-01** Design direction: layout (documents sidebar + chat main area), colours, typography, light and dark mode. Agree on a mockup before coding.
+- [ ] **UI-02** Implement the layout and styles (plain CSS, design tokens), plus a styled Cognito login screen that matches.
+- [ ] **UI-03** Components: upload drop zone with progress, document cards with status badges, chat bubbles, expandable citations, empty, loading and error states.
+- [ ] **UI-04** Accessibility and responsive check (keyboard, contrast, mobile width).
+- [ ] **UI-05** Fix misleading error: a missing API route currently shows "Cannot reach the server" (API Gateway's 404 has no CORS headers, so the browser reports a network error). This disappears once Phase 2 routes exist; still show a clearer message.
+
+---
+
 ## Phase 5 — Hardening
 
 - [ ] **P5-01** Wire up and verify `DELETE /documents/{id}` (the service logic and tests already exist). It deletes from the Knowledge Base (`DeleteKnowledgeBaseDocuments`), deletes the S3 object, and only then deletes the metadata. Verify the document is no longer retrievable.
@@ -158,3 +168,4 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 | 2026-11-17 | Planning, decisions, repository set up, prototype code reviewed and reused | None | 57 backend + 6 frontend tests pass locally |
 | 2026-11-17 | CDK app: Cognito, HTTP API + JWT authorizer + throttling, health and me Lambdas, scripts | None (synth only) | 10 infra tests, `cdk synth` OK, 59 backend tests |
 | 2026-11-17 | S3 + CloudFront (OAC, CSP), runtime `/config.json`, Cognito login (Amplify Authenticator), real `HttpApi` client | None (synth only) | 13 infra + 13 frontend + 59 backend tests |
+| 2026-11-18 | Account setup (Identity Center, SSO CLI, budget), old key …IPPF deactivated, Bedrock checks + 3 test calls, `cdk bootstrap`, **first deploy** (Phase 1 demo passed), destroy | None (only `CDKToolkit`, kept on purpose) | Leftovers found after destroy: 2 untagged log groups (deleted). Teardown script now matches any `CloudDocsAI` log group, has `-Cleanup`, and flags stale tagging-index entries. Claude Haiku needs the Anthropic use-case form. |

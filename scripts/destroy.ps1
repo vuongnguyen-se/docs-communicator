@@ -13,4 +13,5 @@ try {
 }
 finally { Pop-Location }
 
-& (Join-Path $PSScriptRoot "check-teardown.ps1") -AwsProfile $AwsProfile
+# -Cleanup removes untagged log groups that Lambdas recreate during stack deletion.
+& (Join-Path $PSScriptRoot "check-teardown.ps1") -AwsProfile $AwsProfile -Cleanup
