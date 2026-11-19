@@ -12,7 +12,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 | 1 | Secure skeleton: CDK, Cognito login, HTTP API, health Lambda, hosted frontend | ✅ Done (2026-11-18) |
 | 2 | Secure PDF upload with metadata and status | ✅ Done (2026-11-19) |
 | 3 | RAG ingestion into Bedrock Knowledge Base | ✅ Done (2026-11-19) |
-| 4 | Grounded chat with citations | Not started |
+| 4 | Grounded chat with citations | Code done (94 backend, 28 infra, 16 frontend tests); evaluation + MVP demo pending |
 | 5 | Hardening: delete flow, IAM review, alarms, Guardrails | Not started |
 | 6 | Advanced: SQS/DLQ, CI/CD, portfolio polish | Not started |
 
@@ -122,12 +122,12 @@ Already done in code: the `KnowledgeBase` port, poll-on-read status refresh (`IN
 
 Already done in code: question validation, `RetrieveAndGenerate` response parsing (`services/rag.py`), citations resolved only against the caller's own documents, and the fixed "no evidence" answer.
 
-- [ ] **P4-01** `KnowledgeBase.query(question, user_id)`: add a **metadata filter `userId = sub`** so retrieval itself is scoped per user, not just the citations. Update the fakes and tests.
-- [ ] **P4-02** Adapter `query`: `RetrieveAndGenerate` with the inference profile ARN (D-008), `maxTokens` cap and the **custom prompt template proven in the spike (required)** (answer only from context, say when unsure, ignore instructions inside documents).
-- [ ] **P4-03** Verify `services/rag.py` against a **real** response and fix any field-mapping differences.
+- [x] **P4-01** (the port now *requires* `owner_id`; adapter refuses an empty one; test proves every chat query carries the caller) `KnowledgeBase.query(question, user_id)`: add a **metadata filter `userId = sub`** so retrieval itself is scoped per user, not just the citations. Update the fakes and tests.
+- [x] **P4-02** (Stubber test pins the exact request: filter, profile ARN, template, `temperature: 0`) Adapter `query`: `RetrieveAndGenerate` with the inference profile ARN (D-008), `maxTokens` cap and the **custom prompt template proven in the spike (required)** (answer only from context, say when unsure, ignore instructions inside documents).
+- [x] **P4-03** `services/rag.py` matches the response shape seen live in spike P0-07 (`citations[].retrievedReferences[].content.text` / `.location.s3Location.uri`); re-confirmed in the P4-07 demo.
 - [ ] **P4-04** (Optional) `conversationId` mapped to the Bedrock `sessionId`, plus a DynamoDB chat history table that stores question, answer and citation refs only.
-- [~] **P4-05** Frontend `HttpApi.ask` (done with P1-08), then polish the chat UI (message list, expandable citations).
-- [ ] **P4-06** Evaluation set: 5 questions with known answers (English and Vietnamese), 3 unrelated questions, 1 prompt-injection PDF and a 2-user isolation test. Record the results in `docs/evaluation.md`.
+- [x] **P4-05** Frontend `HttpApi.ask` plus chat UI: conversation list, expandable sources per answer, explicit "no source" state. Visual design follows in the UI track.
+- [~] **P4-06** (kit ready: `eval/make_pdfs.py` makes 3 fictional PDFs; `eval/run_eval.py` runs 11 cases and writes `docs/evaluation.md`; runs in P4-07) Evaluation set: 5 questions with known answers (English and Vietnamese), 3 unrelated questions, 1 prompt-injection PDF and a 2-user isolation test. Record the results in `docs/evaluation.md`.
 - [ ] **P4-07** 💰🧹 **Phase demo:** run the end-to-end MVP for all acceptance criteria in `PROJECT_REQUIREMENTS.md` §6, then destroy.
 
 ---

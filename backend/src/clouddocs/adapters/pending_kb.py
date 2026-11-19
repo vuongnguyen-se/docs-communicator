@@ -27,5 +27,5 @@ class PendingKnowledgeBase:
     def delete(self, s3_key: str) -> None:
         return None
 
-    def query(self, question: str) -> RagResult:
+    def query(self, question: str, owner_id: str) -> RagResult:
         return RagResult(answer="", references=[])

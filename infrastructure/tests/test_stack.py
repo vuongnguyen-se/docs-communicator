@@ -75,7 +75,7 @@ def test_stage_is_throttled(template: Template) -> None:
 
 
 def test_app_lambdas_use_python312_arm64(template: Template) -> None:
-    for name in ("HealthFunction", "MeFunction", "DocumentsFunction"):
+    for name in ("HealthFunction", "MeFunction", "DocumentsFunction", "ChatFunction"):
         fns = {k: v for k, v in template.find_resources("AWS::Lambda::Function").items() if name in k}
         assert len(fns) == 1, name
         props = next(iter(fns.values()))["Properties"]
@@ -358,3 +358,46 @@ def test_initial_sync_runs_once_at_deploy(template: Template) -> None:
     sync = [v for k, v in template.find_resources("Custom::AWS").items() if "InitialSync" in k]
     assert len(sync) == 1
     assert "StartIngestionJob" in json.dumps(sync[0]["Properties"]["Create"])
+
+
+# ---------------------------------------------------------------- Phase 4: chat
+
+
+def _fn(template: Template, name: str) -> dict:
+    fns = [v for k, v in template.find_resources("AWS::Lambda::Function").items() if name in k]
+    assert len(fns) == 1, name
+    return fns[0]
+
+
+def test_chat_route_requires_jwt(template: Template) -> None:
+    template.has_resource_properties(
+        "AWS::ApiGatewayV2::Route", {"RouteKey": "POST /chat/query", "AuthorizationType": "JWT"}
+    )
+
+
+def test_chat_lambda_config(template: Template) -> None:
+    fn = _fn(template, "ChatFunction")["Properties"]
+    assert fn["Timeout"] == 29  # under API Gateway's 30 s integration limit
+    env = fn["Environment"]["Variables"]
+    assert {"KNOWLEDGE_BASE_ID", "MODEL_ARN", "DOCUMENTS_TABLE"} <= set(env)
+    assert "inference-profile/apac.amazon.nova-lite-v1:0" in json.dumps(env["MODEL_ARN"])
+
+
+def test_chat_iam_is_kb_scoped_and_one_model(template: Template) -> None:
+    fn = _fn(template, "ChatFunction")
+    statements = _role_statements(template, fn["Properties"]["Role"]["Fn::GetAtt"][0])
+    by_action = {}
+    for st in statements:
+        acts = st["Action"] if isinstance(st["Action"], list) else [st["Action"]]
+        assert st["Resource"] != "*" and not any(a.endswith(":*") for a in acts), st
+        for a in acts:
+            by_action[a] = json.dumps(st["Resource"])
+    assert set(by_action) == {
+        "dynamodb:GetItem",
+        "bedrock:Retrieve",
+        "bedrock:RetrieveAndGenerate",
+        "bedrock:InvokeModel",
+    }
+    assert "KnowledgeBase" in by_action["bedrock:RetrieveAndGenerate"]
+    assert "foundation-model/amazon.nova-lite-v1:0" in by_action["bedrock:InvokeModel"]
+    assert "inference-profile/apac.amazon.nova-lite-v1:0" in by_action["bedrock:InvokeModel"]

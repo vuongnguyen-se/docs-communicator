@@ -250,4 +250,4 @@ def test_pending_kb_never_reports_indexed() -> None:
     kb = PendingKnowledgeBase()
     kb.ingest("k", "user-a", "doc")
     assert kb.index_state("k") == IndexState.IN_PROGRESS
-    assert kb.query("anything").references == []
+    assert kb.query("anything", "user-a").references == []

@@ -34,3 +34,6 @@ coverage/
 .mypy_cache/
 .ruff_cache/
 cdk-outputs.json
+
+# Evaluation PDFs (generated)
+eval/out/

@@ -1,6 +1,6 @@
 """Parsing of a Bedrock RetrieveAndGenerate response into a provider-neutral RagResult.
 
-Assumed response shape (verify against the live API in Phase 2):
+Response shape (confirmed live in spike P0-07, 2026-11-19):
   {"output": {"text": "..."},
    "citations": [{"retrievedReferences": [
        {"content": {"text": "..."}, "location": {"s3Location": {"uri": "s3://bucket/key"}}}]}]}

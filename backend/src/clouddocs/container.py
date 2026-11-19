@@ -53,6 +53,10 @@ def build_services_from_env() -> Services:
         retries={"max_attempts": 3, "mode": "standard"}, connect_timeout=2, read_timeout=5
     )
     dynamodb = boto3.client("dynamodb", region_name=region, config=common)
+    # RetrieveAndGenerate (search + answer) can take several seconds: longer read timeout, 1 retry.
+    chat_config = Config(
+        retries={"max_attempts": 2, "mode": "standard"}, connect_timeout=2, read_timeout=25
+    )
     # Regional virtual-hosted URLs: https://<bucket>.s3.<region>.amazonaws.com/
     s3_config = common.merge(Config(signature_version="s3v4", s3={"addressing_style": "virtual"}))
     s3 = boto3.client("s3", region_name=region, config=s3_config)
@@ -69,6 +73,8 @@ def build_services_from_env() -> Services:
             knowledge_base_id=os.environ["KNOWLEDGE_BASE_ID"],
             data_source_id=os.environ["DATA_SOURCE_ID"],
             bucket=bucket,
+            runtime=boto3.client("bedrock-agent-runtime", region_name=region, config=chat_config),
+            model_arn=os.environ.get("MODEL_ARN"),
         )
     else:
         kb = PendingKnowledgeBase()  # no Knowledge Base deployed: never claims READY

@@ -1,19 +1,33 @@
 {
   "app": "python app.py",
   "watch": {
-    "include": ["**"],
-    "exclude": ["README.md", "cdk*.json", "requirements*.txt", "**/__pycache__", ".venv", "tests"]
+    "include": [
+      "**"
+    ],
+    "exclude": [
+      "README.md",
+      "cdk*.json",
+      "requirements*.txt",
+      "**/__pycache__",
+      ".venv",
+      "tests"
+    ]
   },
   "context": {
     "clouddocs": {
       "stage": "dev",
       "region": "ap-southeast-1",
-      "allowedOrigins": ["http://localhost:5173"],
+      "allowedOrigins": [
+        "http://localhost:5173"
+      ],
       "throttleRateLimit": 5,
-      "throttleBurstLimit": 10
+      "throttleBurstLimit": 10,
+      "generationModel": "apac.amazon.nova-lite-v1:0"
     },
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
-    "@aws-cdk/core:target-partitions": ["aws"]
+    "@aws-cdk/core:target-partitions": [
+      "aws"
+    ]
   }
 }

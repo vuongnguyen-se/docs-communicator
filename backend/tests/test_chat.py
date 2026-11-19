@@ -83,3 +83,9 @@ def test_parse_bedrock_response():
 
 def test_parse_empty_response():
     assert parse_retrieve_and_generate({}).references == []
+
+
+def test_retrieval_is_always_scoped_to_the_caller(env: Env):
+    env.chat.query(USER_A, ChatRequest(question="What is SQS?"))
+    env.chat.query(USER_B, ChatRequest(question="What is SQS?"))
+    assert env.kb.queries == [("What is SQS?", USER_A), ("What is SQS?", USER_B)]

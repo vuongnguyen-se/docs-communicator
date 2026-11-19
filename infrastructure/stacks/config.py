@@ -19,6 +19,7 @@ class Config:
     allowed_origins: list[str]
     throttle_rate_limit: float
     throttle_burst_limit: int
+    generation_model: str  # inference profile id, e.g. apac.amazon.nova-lite-v1:0 (D-008)
 
 
 def config_from_dict(raw: dict[str, Any]) -> Config:
@@ -28,6 +29,7 @@ def config_from_dict(raw: dict[str, Any]) -> Config:
         allowed_origins=[str(o) for o in raw.get("allowedOrigins", [])],
         throttle_rate_limit=float(raw.get("throttleRateLimit", 5)),
         throttle_burst_limit=int(raw.get("throttleBurstLimit", 10)),
+        generation_model=str(raw.get("generationModel", "apac.amazon.nova-lite-v1:0")),
     )
 
 

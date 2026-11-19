@@ -75,7 +75,7 @@ class FakeKB:
         self.ingest_error: Exception | None = None
         self.delete_completes = True
         self.result = RagResult(answer="", references=[])
-        self.queries: list[str] = []
+        self.queries: list[tuple[str, str]] = []
 
     def ingest(self, s3_key: str, owner_id: str, document_id: str) -> None:
         if self.ingest_error:
@@ -89,6 +89,6 @@ class FakeKB:
         if self.delete_completes:
             self.states.pop(s3_key, None)
 
-    def query(self, question: str) -> RagResult:
-        self.queries.append(question)
+    def query(self, question: str, owner_id: str) -> RagResult:
+        self.queries.append((question, owner_id))
         return self.result

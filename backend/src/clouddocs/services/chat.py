@@ -29,7 +29,7 @@ class ChatService:
     def query(self, user_id: str, req: ChatRequest) -> tuple[str, list[Citation]]:
         validate_user_id(user_id)
         question = validate_question(req.question, self._s)
-        result = self._kb.query(question)
+        result = self._kb.query(question, user_id)  # retrieval filtered to this user
         citations = self._resolve_citations(user_id, result)
         if not citations:
             # No verifiable evidence: never return a model answer dressed up with sources.

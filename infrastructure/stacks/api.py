@@ -7,7 +7,7 @@ URL or a buggy client cannot generate unbounded Lambda/Bedrock cost.
 
 from __future__ import annotations
 
-from aws_cdk import Duration, RemovalPolicy
+from aws_cdk import Aws, Duration, RemovalPolicy, Stack
 from aws_cdk import aws_apigatewayv2 as apigw
 from aws_cdk import aws_apigatewayv2_authorizers as authorizers
 from aws_cdk import aws_apigatewayv2_integrations as integrations
@@ -121,6 +121,45 @@ class Api(Construct):
         ]:
             self.http_api.add_routes(path=path, methods=[method], integration=docs_integration)
 
+        # Chat API (Phase 4): grounded answers from the caller's own documents.
+        region = Stack.of(self).region
+        profile_id = config.generation_model
+        model_id = profile_id.split(".", 1)[1] if profile_id.startswith(("apac.", "us.", "eu.", "global.")) else profile_id
+        profile_arn = f"arn:{Aws.PARTITION}:bedrock:{region}:{Aws.ACCOUNT_ID}:inference-profile/{profile_id}"
+        self.chat_fn = self._function(
+            "Chat",
+            "clouddocs.handlers.chat.handler",
+            environment={
+                "DOCUMENTS_TABLE": documents_table.table_name,
+                "DOCUMENTS_BUCKET": documents_bucket.bucket_name,
+                "KNOWLEDGE_BASE_ID": knowledge_base_id,
+                "DATA_SOURCE_ID": data_source_id,
+                "MODEL_ARN": profile_arn,
+            },
+            timeout=Duration.seconds(29),  # API Gateway's integration limit is 30 s
+        )
+        # Citations are checked against the caller's own documents: read-only, single items.
+        documents_table.grant(self.chat_fn, "dynamodb:GetItem")
+        self.chat_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["bedrock:Retrieve", "bedrock:RetrieveAndGenerate"],
+                resources=[knowledge_base_arn],
+            )
+        )
+        self.chat_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                # The APAC inference profile routes to the same model in several APAC Regions,
+                # so the model ARN uses a Region wildcard but names exactly one model.
+                actions=["bedrock:InvokeModel"],
+                resources=[profile_arn, f"arn:{Aws.PARTITION}:bedrock:*::foundation-model/{model_id}"],
+            )
+        )
+        self.http_api.add_routes(
+            path="/chat/query",
+            methods=[apigw.HttpMethod.POST],
+            integration=integrations.HttpLambdaIntegration("ChatIntegration", self.chat_fn),
+        )
+
     @property
     def url(self) -> str:
         return self.stage.url
@@ -157,7 +196,11 @@ class Api(Construct):
         )
 
     def _function(
-        self, name: str, handler: str, environment: dict[str, str] | None = None
+        self,
+        name: str,
+        handler: str,
+        environment: dict[str, str] | None = None,
+        timeout: Duration | None = None,
     ) -> lambda_.Function:
         log_group = logs.LogGroup(
             self,
@@ -173,7 +216,7 @@ class Api(Construct):
             handler=handler,
             code=self._code,
             memory_size=256,
-            timeout=Duration.seconds(10),
+            timeout=timeout or Duration.seconds(10),
             log_group=log_group,
             logging_format=lambda_.LoggingFormat.JSON,
             environment=environment or {},
