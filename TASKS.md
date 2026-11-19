@@ -11,7 +11,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 | 0 | Account, tooling and Region checks; prove the AI path in a throwaway spike | ✅ Done (P0-04 tag activation and optional Claude form left) |
 | 1 | Secure skeleton: CDK, Cognito login, HTTP API, health Lambda, hosted frontend | ✅ Done (2026-11-18) |
 | 2 | Secure PDF upload with metadata and status | ✅ Done (2026-11-19) |
-| 3 | RAG ingestion into Bedrock Knowledge Base | Code done (91 backend, 25 infra, 16 frontend tests); demo P3-05 pending |
+| 3 | RAG ingestion into Bedrock Knowledge Base | ✅ Done (2026-11-19) |
 | 4 | Grounded chat with citations | Not started |
 | 5 | Hardening: delete flow, IAM review, alarms, Guardrails | Not started |
 | 6 | Advanced: SQS/DLQ, CI/CD, portfolio polish | Not started |
@@ -114,7 +114,7 @@ Already done in code: the `KnowledgeBase` port, poll-on-read status refresh (`IN
   - `delete`: `DeleteKnowledgeBaseDocuments`, plus delete the sidecar together with the PDF.
   - Stubber tests.
 - [x] **P3-04** Frontend: backoff polling 2 s → 3 s → 4.5 s … capped at 10 s, with readable status labels ("Indexing…", "Ready"); 3 tests.
-- [ ] **P3-05** 💰🧹 **Phase demo:** upload 2 small non-sensitive PDFs (one English, one Vietnamese), both reach `READY`, and a CLI `Retrieve` call returns their chunks. Then destroy.
+- [x] **P3-05** 💰🧹 (2026-11-19: after an IAM fix, 10/10 live checks; the owner's 2 PDFs, EN + VI, reached Ready; passages labelled with the owner's userId; another user retrieves 0; destroyed; teardown passed) **Phase demo:** upload 2 small non-sensitive PDFs (one English, one Vietnamese), both reach `READY`, and a CLI `Retrieve` call returns their chunks. Then destroy.
 
 ---
 
@@ -136,7 +136,7 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 
 - [ ] **UI-01** Design direction: layout (documents sidebar + chat main area), colours, typography, light and dark mode. Agree on a mockup before coding.
 - [ ] **UI-02** Implement the layout and styles (plain CSS, design tokens), plus a styled Cognito login screen that matches.
-- [ ] **UI-03** Components: upload drop zone with progress, document cards with status badges, chat bubbles, expandable citations, empty, loading and error states.
+- [ ] **UI-03** Components: upload drop zone with **multi-file selection** (owner request, 2026-11-19) and per-file progress, document cards with status badges, chat bubbles, expandable citations, empty, loading and error states.
 - [ ] **UI-04** Accessibility and responsive check (keyboard, contrast, mobile width).
 - [ ] **UI-05** Fix misleading error: a missing API route currently shows "Cannot reach the server" (API Gateway's 404 has no CORS headers, so the browser reports a network error). This disappears once Phase 2 routes exist; still show a clearer message.
 
@@ -171,3 +171,4 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 | 2026-11-18 | Account setup (Identity Center, SSO CLI, budget), old key …IPPF deactivated, Bedrock checks + 3 test calls, `cdk bootstrap`, **first deploy** (Phase 1 demo passed), destroy | None (only `CDKToolkit`, kept on purpose) | Leftovers found after destroy: 2 untagged log groups (deleted). Teardown script now matches any `CloudDocsAI` log group, has `-Cleanup`, and flags stale tagging-index entries. Claude Haiku needs the Anthropic use-case form. |
 | 2026-11-19 | HOW_IT_WORKS guide; **Knowledge Base spike P0-07**: S3 Vectors, per-document ingest (~5 s), per-user filter, Vietnamese Q&A, delete, all proven | None (spike resources deleted and verified) | Findings: metadata must be an S3 sidecar file; Bedrock's default prompt fails with Nova Lite, so a custom template is required. |
 | 2026-11-19 | **Phase 2** built (adapters, bucket, table, documents API) and demoed: 19/19 live checks (401, validation, S3 policy key/size enforcement, encrypted storage, INDEXING not READY, user isolation 404, fake-PDF cleanup, 409 on missing upload) and a real browser upload | None | Teardown check now filters deleted Cognito pools that the tagging index keeps listing for over a day. Use non-sensitive PDFs from Phase 3 on. |
+| 2026-11-19 | Progress deck; **Phase 3** built and demoed: Knowledge Base on S3 Vectors in CDK, automatic first sync, Bedrock adapter with sidecar metadata | None (destroyed, teardown passed) | Found in the demo: per-document ingestion needs `bedrock:StartIngestionJob` (the spike ran as admin, so it could not catch this); fixed and redeployed in 32 s. READY in about 4 s. Cold start about 6 s with the bundled boto3 (D-014), warm 78 ms. Teardown cleanup now retries because helper log groups can reappear. |

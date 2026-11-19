@@ -38,6 +38,7 @@ Short records of decisions that shape the project. Add a new entry instead of si
 
 ## D-006 — Ingestion: Knowledge Base direct ingestion API
 - **Status:** Accepted (proven in spike P0-07, 2026-11-19, `docs/spikes/2026-11-19-knowledge-base-spike.md`)
+- **IAM finding (Phase 3 demo):** `IngestKnowledgeBaseDocuments` is authorized as `bedrock:StartIngestionJob`, so the documents role needs both (scoped to the Knowledge Base ARN). Lesson: a spike run as admin proves the API, not the permissions.
 - **Spike finding:** with an S3 data source, metadata must also come from S3. The backend writes a sidecar `<pdf key>.metadata.json` (`{"metadataAttributes": {"userId", "documentId"}}`) before ingesting, and deletes it with the PDF. Indexing took about 5 s; delete about 5 s.
 - **Why:** A normal `StartIngestionJob` syncs the whole data source at once, which conflicts with tracking status per document. `IngestKnowledgeBaseDocuments` handles one document at a time, and `DeleteKnowledgeBaseDocuments` gives a real delete path.
 - **Known constraints from AWS docs:**
@@ -124,6 +125,6 @@ The owner shared a reference AWS diagram: Amplify, REST API, Cognito, an extract
 ## D-014 — Bundle a pinned boto3 with the Lambda code
 - **Status:** Accepted (2026-11-19)
 - **Why:** Per-document ingestion (`IngestKnowledgeBaseDocuments`) is a newer Bedrock API. The boto3 inside the Lambda runtime is chosen by AWS and can lag, so the code would depend on a version we don't control. Bundling `boto3>=1.40,<2` (1.44.6 at the time) makes every deploy behave the same.
-- **Cost:** the Lambda package grows to about 42 MB unpacked (limit 250 MB), and cold starts get slightly slower. It is measured in the Phase 3 demo.
+- **Cost:** the Lambda package grows to about 42 MB unpacked (limit 250 MB). Measured in the Phase 3 demo: about 6.2 s for the first request after a deploy (cold start, from the laptop), 78 ms warm.
 - **Revisit:** if cold starts matter, trim botocore's unused service models or use a Lambda layer.
 

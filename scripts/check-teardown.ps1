@@ -30,11 +30,16 @@ $tagged = ($tagged -split '\s+' | Where-Object { $_ } | Where-Object {
 $logGroups = aws logs describe-log-groups --profile $AwsProfile --region $Region `
     --log-group-name-pattern "CloudDocsAI" --query "logGroups[].logGroupName" --output text
 
-if ($Cleanup -and $logGroups) {
+# A helper Lambda can still be flushing logs right after deletion and recreate its group,
+# so clean up a few times with a short pause.
+$attempt = 0
+while ($Cleanup -and $logGroups -and $attempt -lt 4) {
+    $attempt++
     foreach ($g in ($logGroups -split '\s+' | Where-Object { $_ })) {
         aws logs delete-log-group --log-group-name $g --profile $AwsProfile --region $Region
         if ($LASTEXITCODE -eq 0) { Write-Host "Deleted log group $g" }
     }
+    Start-Sleep -Seconds 15
     $logGroups = aws logs describe-log-groups --profile $AwsProfile --region $Region `
         --log-group-name-pattern "CloudDocsAI" --query "logGroups[].logGroupName" --output text
 }

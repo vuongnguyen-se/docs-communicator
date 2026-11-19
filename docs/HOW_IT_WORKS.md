@@ -42,7 +42,7 @@ Everything is **serverless**: there are no servers to manage, and you pay per re
 | Chat logic and citation mapping | 🧪 | `backend/src/clouddocs/services/chat.py`, `rag.py` |
 | Frontend upload, list, chat and real API client | 🧪 | `frontend/src/components/`, `frontend/src/api/http.ts` |
 | Document bucket, DynamoDB table, boto3 adapters | ✅ | `infrastructure/stacks/data.py`, `backend/src/clouddocs/adapters/` |
-| Bedrock Knowledge Base + S3 Vectors | ⬜ Phase 3 (proven by CLI spike, `docs/spikes/`) | — |
+| Bedrock Knowledge Base + S3 Vectors, per-document indexing | ✅ | `infrastructure/stacks/knowledge.py`, `backend/src/clouddocs/adapters/bedrock_kb.py` |
 | Grounded chat end to end | ⬜ Phase 4 | — |
 | Visual design | ⬜ UI track | — |
 | Alarms, IAM review, Guardrails | ⬜ Phase 5 | — |
@@ -207,7 +207,7 @@ sequenceDiagram
 - **Presigned POST** (D-013): a short-lived signed form that lets the browser upload one file straight to S3. Its policy enforces the size and content type at S3 itself.
 - **Checked twice:** the browser checks for user experience, and the server checks again because the browser can't be trusted. After upload, the server also checks the real file starts with `%PDF-`.
 
-### 4.4 Indexing and status 🧪 (Phase 3)
+### 4.4 Indexing and status ✅ (live-tested in Phase 3: READY in about 4 s)
 
 The browser polls `GET /documents`. For any document in `INDEXING`, the Lambda asks the Knowledge Base for that document's status and updates DynamoDB. This is "poll on read", which needs no extra infrastructure. A document becomes `READY` **only** after the Knowledge Base confirms it is indexed.
 
@@ -294,7 +294,7 @@ flowchart LR
 | 0 Setup & validation | Secure account, budget, CLI, model checks, bootstrap, Knowledge Base spike | ✅ Done 2026-11-19 (spike report in `docs/spikes/`) |
 | 1 Secure skeleton | Login, protected API, hosted website, deploy/destroy | ✅ Done 2026-11-18 |
 | 2 Secure upload | Document bucket, DynamoDB, adapters, real uploads | ✅ Done 2026-11-19 |
-| 3 RAG ingestion | Knowledge Base + S3 Vectors in CDK, per-document indexing | ⬜ |
+| 3 RAG ingestion | Knowledge Base + S3 Vectors in CDK, per-document indexing | ✅ Done 2026-11-19 |
 | 4 Grounded chat | Filtered `RetrieveAndGenerate`, citations, evaluation set | ⬜ MVP complete here |
 | UI track | Visual design in mock mode | ⬜ Any time, free |
 | 5 Hardening | Delete flow live, IAM review, alarms, Guardrails/WAF decisions | ⬜ |
