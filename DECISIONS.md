@@ -120,3 +120,10 @@ The owner shared a reference AWS diagram: Amplify, REST API, Cognito, an extract
 - **Status:** Accepted
 - **Why:** A presigned POST policy can enforce `content-length-range` (≤ 10 MB) and `Content-Type` at S3 itself. A presigned PUT cannot limit size.
 - **Defence in depth:** `/complete` also checks the real object size and the `%PDF-` header.
+
+## D-014 — Bundle a pinned boto3 with the Lambda code
+- **Status:** Accepted (2026-11-19)
+- **Why:** Per-document ingestion (`IngestKnowledgeBaseDocuments`) is a newer Bedrock API. The boto3 inside the Lambda runtime is chosen by AWS and can lag, so the code would depend on a version we don't control. Bundling `boto3>=1.40,<2` (1.44.6 at the time) makes every deploy behave the same.
+- **Cost:** the Lambda package grows to about 42 MB unpacked (limit 250 MB), and cold starts get slightly slower. It is measured in the Phase 3 demo.
+- **Revisit:** if cold starts matter, trim botocore's unused service models or use a Lambda layer.
+

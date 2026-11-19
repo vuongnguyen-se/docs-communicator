@@ -11,6 +11,7 @@ from .api import Api
 from .auth import Auth
 from .config import Config
 from .data import Data
+from .knowledge import Knowledge
 from .web import Web
 
 
@@ -23,6 +24,7 @@ class CloudDocsStack(Stack):
         web = Web(self, "Web", region=config.region)
         origins = [*config.allowed_origins, web.url]
         data = Data(self, "Data", allowed_origins=origins)
+        knowledge = Knowledge(self, "Knowledge", documents_bucket=data.bucket)
         api = Api(
             self,
             "Api",
@@ -32,6 +34,9 @@ class CloudDocsStack(Stack):
             user_pool_client=auth.client,
             documents_table=data.table,
             documents_bucket=data.bucket,
+            knowledge_base_id=knowledge.knowledge_base_id,
+            knowledge_base_arn=knowledge.knowledge_base_arn,
+            data_source_id=knowledge.data_source_id,
         )
         web.deploy_site(
             {
@@ -49,3 +54,5 @@ class CloudDocsStack(Stack):
         CfnOutput(self, "UserPoolId", value=auth.user_pool.user_pool_id)
         CfnOutput(self, "UserPoolClientId", value=auth.client.user_pool_client_id)
         CfnOutput(self, "Region", value=self.region)
+        CfnOutput(self, "KnowledgeBaseId", value=knowledge.knowledge_base_id)
+        CfnOutput(self, "DataSourceId", value=knowledge.data_source_id)

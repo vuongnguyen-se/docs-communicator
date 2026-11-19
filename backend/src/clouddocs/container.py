@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from .config import Settings
 from .services.chat import ChatService
 from .services.documents import DocumentService
+from .services.interfaces import KnowledgeBase
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,7 @@ def build_services_from_env() -> Services:
     import boto3
     from botocore.config import Config
 
+    from .adapters.bedrock_kb import BedrockKnowledgeBase
     from .adapters.dynamodb_repo import DynamoDocumentRepository
     from .adapters.pending_kb import PendingKnowledgeBase
     from .adapters.s3_storage import S3ObjectStorage
@@ -56,9 +58,20 @@ def build_services_from_env() -> Services:
     s3 = boto3.client("s3", region_name=region, config=s3_config)
 
     settings = Settings.from_env()
+    bucket = os.environ["DOCUMENTS_BUCKET"]
     repo = DynamoDocumentRepository(dynamodb, os.environ["DOCUMENTS_TABLE"])
-    storage = S3ObjectStorage(s3, os.environ["DOCUMENTS_BUCKET"])
-    kb = PendingKnowledgeBase()  # Phase 3 replaces this with the Bedrock adapter
+    storage = S3ObjectStorage(s3, bucket)
+    kb: KnowledgeBase
+    if os.environ.get("KNOWLEDGE_BASE_ID"):
+        kb = BedrockKnowledgeBase(
+            boto3.client("bedrock-agent", region_name=region, config=common),
+            s3,
+            knowledge_base_id=os.environ["KNOWLEDGE_BASE_ID"],
+            data_source_id=os.environ["DATA_SOURCE_ID"],
+            bucket=bucket,
+        )
+    else:
+        kb = PendingKnowledgeBase()  # no Knowledge Base deployed: never claims READY
     return Services(
         documents=DocumentService(repo, storage, kb, settings),
         chat=ChatService(repo, kb, settings),

@@ -3,16 +3,18 @@ name = "clouddocs-backend"
 version = "0.1.0"
 description = "CloudDocs AI backend (Lambda handlers + services)"
 requires-python = ">=3.12"
-dependencies = ["pydantic>=2.7,<3"]
+dependencies = [
+    "pydantic>=2.7,<3",
+    # Bundled (not the Lambda runtime copy) so newer Bedrock APIs are always present (D-014).
+    "boto3>=1.40,<2",
+]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
     "ruff>=0.5",
     "mypy>=1.10",
-    # boto3 is provided by the Lambda runtime; installed here only for tests and typing.
-    "boto3>=1.40",
-    "boto3-stubs[dynamodb,s3]>=1.40",
+    "boto3-stubs[dynamodb,s3,bedrock-agent,bedrock-agent-runtime]>=1.40",
 ]
 
 [build-system]

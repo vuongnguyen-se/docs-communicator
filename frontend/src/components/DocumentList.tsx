@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, type ApiClient, type DocumentInfo } from "../api";
 import { formatBytes, validateFile } from "../api/validation";
-
-const POLL_MS = 2000;
+import { POLL_START_MS, isUnresolved, nextPollDelay, statusLabel } from "./status";
 
 interface Props {
   api: ApiClient;
@@ -14,6 +13,7 @@ export function DocumentList({ api, onChange }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const pollDelay = useRef(POLL_START_MS);
 
   const refresh = useCallback(async () => {
     try {
@@ -42,12 +42,20 @@ export function DocumentList({ api, onChange }: Props) {
     };
   }, [api, onChange]);
 
-  const unresolved = docs.some((d) => ["PENDING_UPLOAD", "UPLOADED", "INDEXING", "DELETING"].includes(d.status));
+  // Poll while something is still changing: 2 s, then 3 s, 4.5 s ... capped at 10 s.
+  // Each refresh replaces `docs`, which re-runs this effect and schedules the next poll.
+  const unresolved = docs.some((d) => isUnresolved(d.status));
   useEffect(() => {
-    if (!unresolved) return;
-    const t = setInterval(() => void refresh(), POLL_MS);
-    return () => clearInterval(t);
-  }, [unresolved, refresh]);
+    if (!unresolved) {
+      pollDelay.current = POLL_START_MS;
+      return;
+    }
+    const t = setTimeout(() => {
+      pollDelay.current = nextPollDelay(pollDelay.current);
+      void refresh();
+    }, pollDelay.current);
+    return () => clearTimeout(t);
+  }, [unresolved, refresh, docs]);
 
   async function onFile(file: File | undefined) {
     if (!file) return;
@@ -57,6 +65,7 @@ export function DocumentList({ api, onChange }: Props) {
     setBusy(true);
     try {
       await api.uploadDocument(file);
+      pollDelay.current = POLL_START_MS; // a new document: check quickly again
       await refresh();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Upload failed.");
@@ -97,7 +106,7 @@ export function DocumentList({ api, onChange }: Props) {
         <ul>
           {docs.map((d) => (
             <li key={d.documentId}>
-              <strong>{d.filename}</strong> ({formatBytes(d.fileSize)}) — <span data-status={d.status}>{d.status}</span>
+              <strong>{d.filename}</strong> ({formatBytes(d.fileSize)}) — <span data-status={d.status}>{statusLabel(d.status)}</span>
               {d.errorCode && <em> ({d.errorCode})</em>}{" "}
               <button onClick={() => void remove(d.documentId)} disabled={d.status === "DELETING"}>
                 Delete

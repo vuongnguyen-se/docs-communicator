@@ -35,6 +35,9 @@ class Api(Construct):
         user_pool_client: cognito.IUserPoolClient,
         documents_table: dynamodb.ITable,
         documents_bucket: s3.IBucket,
+        knowledge_base_id: str,
+        knowledge_base_arn: str,
+        data_source_id: str,
     ) -> None:
         super().__init__(scope, construct_id)
         self._code = backend_code()
@@ -90,9 +93,22 @@ class Api(Construct):
             environment={
                 "DOCUMENTS_TABLE": documents_table.table_name,
                 "DOCUMENTS_BUCKET": documents_bucket.bucket_name,
+                "KNOWLEDGE_BASE_ID": knowledge_base_id,
+                "DATA_SOURCE_ID": data_source_id,
             },
         )
         self._grant_documents_access(self.documents_fn, documents_table, documents_bucket)
+        self.documents_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                # Per-document ingestion, status and removal on this Knowledge Base only (D-006).
+                actions=[
+                    "bedrock:IngestKnowledgeBaseDocuments",
+                    "bedrock:GetKnowledgeBaseDocuments",
+                    "bedrock:DeleteKnowledgeBaseDocuments",
+                ],
+                resources=[knowledge_base_arn],
+            )
+        )
         docs_integration = integrations.HttpLambdaIntegration("DocumentsIntegration", self.documents_fn)
         for method, path in [
             (apigw.HttpMethod.POST, "/documents/upload-url"),
@@ -121,7 +137,8 @@ class Api(Construct):
         )
         fn.add_to_role_policy(
             iam.PolicyStatement(
-                # PutObject: the presigned POST is signed with this role's credentials.
+                # PutObject: the presigned POST is signed with this role's credentials,
+                # and the Lambda writes the <key>.metadata.json sidecar (Phase 3).
                 # GetObject: HeadObject + reading the first bytes (PDF check).
                 actions=["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
                 resources=[bucket.arn_for_objects("uploads/*")],

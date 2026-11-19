@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import aws_cdk as cdk
 import pytest
 from aws_cdk.assertions import Match, Template
@@ -206,7 +208,7 @@ def test_documents_routes_exist_and_require_jwt(template: Template) -> None:
 def test_documents_lambda_gets_table_and_bucket_from_env(template: Template) -> None:
     _, fn = _documents_fn(template)
     env = fn["Properties"]["Environment"]["Variables"]
-    assert set(env) == {"DOCUMENTS_TABLE", "DOCUMENTS_BUCKET"}
+    assert set(env) == {"DOCUMENTS_TABLE", "DOCUMENTS_BUCKET", "KNOWLEDGE_BASE_ID", "DATA_SOURCE_ID"}
 
 
 def test_documents_lambda_iam_is_least_privilege(template: Template) -> None:
@@ -234,6 +236,9 @@ def test_documents_lambda_iam_is_least_privilege(template: Template) -> None:
         "s3:GetObject",
         "s3:DeleteObject",
         "s3:ListBucket",
+        "bedrock:IngestKnowledgeBaseDocuments",
+        "bedrock:GetKnowledgeBaseDocuments",
+        "bedrock:DeleteKnowledgeBaseDocuments",
     }
     listing = next(s for s in statements if s["Action"] == "s3:ListBucket")
     assert listing["Condition"] == {"StringLike": {"s3:prefix": ["uploads/*"]}}
@@ -245,3 +250,109 @@ def test_csp_allows_browser_upload_to_regional_s3(template: Template) -> None:
         "ContentSecurityPolicy"
     ]
     assert "https://*.s3.ap-southeast-1.amazonaws.com" in csp
+
+
+# ---------------------------------------------------------------- Phase 3: Knowledge Base
+
+
+def test_vector_index_matches_cohere_and_spike(template: Template) -> None:
+    template.has_resource(
+        "AWS::S3Vectors::Index",
+        {
+            "Properties": Match.object_like(
+                {
+                    "DataType": "float32",
+                    "Dimension": 1024,
+                    "DistanceMetric": "cosine",
+                    "MetadataConfiguration": {
+                        "NonFilterableMetadataKeys": ["AMAZON_BEDROCK_TEXT", "AMAZON_BEDROCK_METADATA"]
+                    },
+                }
+            ),
+            "DeletionPolicy": "Delete",
+        },
+    )
+    template.resource_count_is("AWS::S3Vectors::VectorBucket", 1)
+
+
+def test_knowledge_base_uses_s3_vectors_and_cohere(template: Template) -> None:
+    kb = next(iter(template.find_resources("AWS::Bedrock::KnowledgeBase").values()))
+    props = kb["Properties"]
+    assert props["StorageConfiguration"]["Type"] == "S3_VECTORS"
+    model = props["KnowledgeBaseConfiguration"]["VectorKnowledgeBaseConfiguration"]["EmbeddingModelArn"]
+    assert "cohere.embed-multilingual-v3" in str(model)
+    assert kb.get("DeletionPolicy") == "Delete"
+
+
+def test_data_source_is_uploads_prefix_fixed_chunks_and_deletes_vectors(template: Template) -> None:
+    template.has_resource_properties(
+        "AWS::Bedrock::DataSource",
+        {
+            "DataDeletionPolicy": "DELETE",
+            "DataSourceConfiguration": Match.object_like(
+                {"Type": "S3", "S3Configuration": Match.object_like({"InclusionPrefixes": ["uploads/"]})}
+            ),
+            "VectorIngestionConfiguration": {
+                "ChunkingConfiguration": {
+                    "ChunkingStrategy": "FIXED_SIZE",
+                    "FixedSizeChunkingConfiguration": {"MaxTokens": 300, "OverlapPercentage": 20},
+                }
+            },
+        },
+    )
+
+
+def _role_statements(template: Template, role_logical_id: str) -> list[dict]:
+    return [
+        st
+        for p in template.find_resources("AWS::IAM::Policy").values()
+        if {"Ref": role_logical_id} in p["Properties"]["Roles"]
+        for st in p["Properties"]["PolicyDocument"]["Statement"]
+    ]
+
+
+def test_knowledge_base_role_is_scoped(template: Template) -> None:
+    roles = {k: v for k, v in template.find_resources("AWS::IAM::Role").items() if "KnowledgeBaseRole" in k}
+    assert len(roles) == 1
+    logical_id, role = next(iter(roles.items()))
+    trust = role["Properties"]["AssumeRolePolicyDocument"]["Statement"][0]
+    assert trust["Principal"] == {"Service": "bedrock.amazonaws.com"}
+    assert "aws:SourceAccount" in trust["Condition"]["StringEquals"]
+    assert "aws:SourceArn" in trust["Condition"]["ArnLike"]
+    statements = _role_statements(template, logical_id)
+    actions = set()
+    for st in statements:
+        acts = st["Action"] if isinstance(st["Action"], list) else [st["Action"]]
+        actions.update(acts)
+        assert st["Resource"] != "*" and not any(a.endswith(":*") for a in acts), st
+    assert actions == {
+        "bedrock:InvokeModel",
+        "s3:GetObject",
+        "s3:ListBucket",
+        "s3vectors:PutVectors",
+        "s3vectors:GetVectors",
+        "s3vectors:DeleteVectors",
+        "s3vectors:QueryVectors",
+        "s3vectors:GetIndex",
+    }
+
+
+def test_documents_lambda_can_only_manage_documents_in_this_kb(template: Template) -> None:
+    _, fn = _documents_fn(template)
+    env = fn["Properties"]["Environment"]["Variables"]
+    assert {"KNOWLEDGE_BASE_ID", "DATA_SOURCE_ID"} <= set(env)
+    statements = _role_statements(template, fn["Properties"]["Role"]["Fn::GetAtt"][0])
+    bedrock = [st for st in statements if any(str(a).startswith("bedrock:") for a in st["Action"])]
+    assert len(bedrock) == 1
+    assert sorted(bedrock[0]["Action"]) == [
+        "bedrock:DeleteKnowledgeBaseDocuments",
+        "bedrock:GetKnowledgeBaseDocuments",
+        "bedrock:IngestKnowledgeBaseDocuments",
+    ]
+    assert "KnowledgeBase" in str(bedrock[0]["Resource"])  # the KB's ARN, not "*"
+
+
+def test_initial_sync_runs_once_at_deploy(template: Template) -> None:
+    sync = [v for k, v in template.find_resources("Custom::AWS").items() if "InitialSync" in k]
+    assert len(sync) == 1
+    assert "StartIngestionJob" in json.dumps(sync[0]["Properties"]["Create"])

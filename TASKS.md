@@ -11,7 +11,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 | 0 | Account, tooling and Region checks; prove the AI path in a throwaway spike | ✅ Done (P0-04 tag activation and optional Claude form left) |
 | 1 | Secure skeleton: CDK, Cognito login, HTTP API, health Lambda, hosted frontend | ✅ Done (2026-11-18) |
 | 2 | Secure PDF upload with metadata and status | ✅ Done (2026-11-19) |
-| 3 | RAG ingestion into Bedrock Knowledge Base | Not started |
+| 3 | RAG ingestion into Bedrock Knowledge Base | Code done (91 backend, 25 infra, 16 frontend tests); demo P3-05 pending |
 | 4 | Grounded chat with citations | Not started |
 | 5 | Hardening: delete flow, IAM review, alarms, Guardrails | Not started |
 | 6 | Advanced: SQS/DLQ, CI/CD, portfolio polish | Not started |
@@ -106,14 +106,14 @@ Already done in code (logic + tests, no AWS yet): validation, server-generated k
 
 Already done in code: the `KnowledgeBase` port, poll-on-read status refresh (`INDEXING` → `READY`/`FAILED`) and transient-error handling.
 
-- [ ] **P3-01** CDK: create the vector store chosen in D-007, plus the Knowledge Base (embedding model from D-008, fixed-size chunking), its least-privilege service role and an S3 data source scoped to `uploads/`.
-- [ ] **P3-02** CDK: add a custom resource or post-deploy script that runs the required initial data-source sync (D-006).
-- [ ] **P3-03** Adapter `adapters/bedrock_kb.py`:
+- [x] **P3-01** (`stacks/knowledge.py`; 6 stack tests) CDK: create the vector store chosen in D-007, plus the Knowledge Base (embedding model from D-008, fixed-size chunking), its least-privilege service role and an S3 data source scoped to `uploads/`.
+- [x] **P3-02** CDK: a custom resource (`AwsCustomResource`, `StartIngestionJob` on create) runs the required first data-source sync at deploy (D-006).
+- [x] **P3-03** (16 Stubber tests; `query` refuses until Phase 4 adds the user filter) Adapter `adapters/bedrock_kb.py`:
   - `ingest`: write the metadata sidecar `<key>.metadata.json` to S3, then `IngestKnowledgeBaseDocuments` with content and metadata **S3 locations** (inline metadata is rejected for S3 data sources; see spike).
   - `index_state`: `GetKnowledgeBaseDocuments`, mapping statuses to `IndexState`.
   - `delete`: `DeleteKnowledgeBaseDocuments`, plus delete the sidecar together with the PDF.
   - Stubber tests.
-- [ ] **P3-04** Frontend: the existing 2 s polling becomes backoff polling (2 s → 10 s), with a clear "indexing…" label.
+- [x] **P3-04** Frontend: backoff polling 2 s → 3 s → 4.5 s … capped at 10 s, with readable status labels ("Indexing…", "Ready"); 3 tests.
 - [ ] **P3-05** 💰🧹 **Phase demo:** upload 2 small non-sensitive PDFs (one English, one Vietnamese), both reach `READY`, and a CLI `Retrieve` call returns their chunks. Then destroy.
 
 ---
