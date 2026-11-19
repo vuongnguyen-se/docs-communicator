@@ -57,6 +57,7 @@ Cognito authentication is part of the MVP (D-004). SQS-based ingestion, Step Fun
 - `SECURITY_AND_COST.md`: security baseline and cost controls.
 - `TASKS.md`: implementation checklist and progress tracker.
 - `DECISIONS.md`: architecture decision log.
+- `docs/HOW_IT_WORKS.md`: **start here**: architecture, flows, stages and current status.
 - `docs/aws-account-setup.md`: one-time AWS account, CLI and budget setup.
 
 ## Run the tests locally
