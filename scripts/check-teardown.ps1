@@ -15,6 +15,16 @@ $tagged = aws resourcegroupstaggingapi get-resources --profile $AwsProfile --reg
     --tag-filters Key=Project,Values=CloudDocsAI `
     --query "ResourceTagMappingList[].ResourceARN" --output text
 
+# The tagging index keeps deleted Cognito user pools listed for a long time (observed > 1 day).
+# Drop pools that no longer exist so only real leftovers are reported.
+$tagged = ($tagged -split '\s+' | Where-Object { $_ } | Where-Object {
+    if ($_ -match ':userpool/(.+)$') {
+        aws cognito-idp describe-user-pool --user-pool-id $Matches[1] --profile $AwsProfile --region $Region --query "UserPool.Id" --output text 2>$null | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    }
+    return $true
+}) -join "`n"
+
 # Log groups created at runtime by Lambdas (CDK helper functions, or a function logging during
 # stack deletion) are untagged and can survive `cdk destroy`. Match any name containing CloudDocsAI.
 $logGroups = aws logs describe-log-groups --profile $AwsProfile --region $Region `

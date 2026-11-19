@@ -10,7 +10,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 |---|---|---|
 | 0 | Account, tooling and Region checks; prove the AI path in a throwaway spike | ✅ Done (P0-04 tag activation and optional Claude form left) |
 | 1 | Secure skeleton: CDK, Cognito login, HTTP API, health Lambda, hosted frontend | ✅ Done (2026-11-18) |
-| 2 | Secure PDF upload with metadata and status | Code done (75 backend + 19 infra tests); demo P2-07 pending |
+| 2 | Secure PDF upload with metadata and status | ✅ Done (2026-11-19) |
 | 3 | RAG ingestion into Bedrock Knowledge Base | Not started |
 | 4 | Grounded chat with citations | Not started |
 | 5 | Hardening: delete flow, IAM review, alarms, Guardrails | Not started |
@@ -94,7 +94,7 @@ Already done in code (logic + tests, no AWS yet): validation, server-generated k
 - [x] **P2-04** (6 tests; the policy is decoded and checked) Adapter `adapters/s3_storage.py` implementing `ObjectStorage`: presigned POST with `content-length-range` and `Content-Type` conditions (D-013), `head` with a ranged GET of the first bytes, and `delete`.
 - [x] **P2-05** `container.py`: a boto3-backed `Services` factory built from env vars, with `PendingKnowledgeBase` until Phase 3, so documents stay `INDEXING` and are never falsely `READY`. Documents Lambda and 4 routes wired; IAM limited to 5 DynamoDB item actions plus S3 Put/Get/Delete on `uploads/*`, plus `ListBucket` restricted to the `uploads/` prefix (so missing objects return 404, not 403). DELETE route deferred to P5-01.
 - [x] **P2-06** Frontend `HttpApi.uploadDocument`: request the URL, then a multipart POST to S3, then `/complete`. Built and unit-tested with P1-08; verified for real in P2-07.
-- [ ] **P2-07** 💰🧹 **Phase demo:**
+- [x] **P2-07** 💰🧹 (2026-11-19: 19/19 live checks plus the owner's browser upload; destroyed; teardown passed) **Phase demo:**
   - Upload a PDF and see it listed.
   - A non-PDF or a file over 10 MB is rejected.
   - User B gets 404 for user A's document.
@@ -170,3 +170,4 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 | 2026-11-17 | S3 + CloudFront (OAC, CSP), runtime `/config.json`, Cognito login (Amplify Authenticator), real `HttpApi` client | None (synth only) | 13 infra + 13 frontend + 59 backend tests |
 | 2026-11-18 | Account setup (Identity Center, SSO CLI, budget), old key …IPPF deactivated, Bedrock checks + 3 test calls, `cdk bootstrap`, **first deploy** (Phase 1 demo passed), destroy | None (only `CDKToolkit`, kept on purpose) | Leftovers found after destroy: 2 untagged log groups (deleted). Teardown script now matches any `CloudDocsAI` log group, has `-Cleanup`, and flags stale tagging-index entries. Claude Haiku needs the Anthropic use-case form. |
 | 2026-11-19 | HOW_IT_WORKS guide; **Knowledge Base spike P0-07**: S3 Vectors, per-document ingest (~5 s), per-user filter, Vietnamese Q&A, delete, all proven | None (spike resources deleted and verified) | Findings: metadata must be an S3 sidecar file; Bedrock's default prompt fails with Nova Lite, so a custom template is required. |
+| 2026-11-19 | **Phase 2** built (adapters, bucket, table, documents API) and demoed: 19/19 live checks (401, validation, S3 policy key/size enforcement, encrypted storage, INDEXING not READY, user isolation 404, fake-PDF cleanup, 409 on missing upload) and a real browser upload | None | Teardown check now filters deleted Cognito pools that the tagging index keeps listing for over a day. Use non-sensitive PDFs from Phase 3 on. |

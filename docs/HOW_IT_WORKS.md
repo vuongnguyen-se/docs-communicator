@@ -38,10 +38,10 @@ Everything is **serverless**: there are no servers to manage, and you pay per re
 | `GET /health`, `GET /me` Lambdas | ✅ | `backend/src/clouddocs/handlers/health.py`, `me.py` |
 | Website on private S3 + CloudFront, security headers | ✅ | `infrastructure/stacks/web.py` |
 | Deploy / destroy / teardown-check scripts | ✅ | `scripts/` |
-| Upload, complete, list, delete logic | 🧪 | `backend/src/clouddocs/services/documents.py` |
+| Upload, complete, list (delete: logic only) | ✅ upload/complete/list live-tested · 🧪 delete | `backend/src/clouddocs/services/documents.py` |
 | Chat logic and citation mapping | 🧪 | `backend/src/clouddocs/services/chat.py`, `rag.py` |
 | Frontend upload, list, chat and real API client | 🧪 | `frontend/src/components/`, `frontend/src/api/http.ts` |
-| Document bucket, DynamoDB table, boto3 adapters | ⬜ Phase 2 | — |
+| Document bucket, DynamoDB table, boto3 adapters | ✅ | `infrastructure/stacks/data.py`, `backend/src/clouddocs/adapters/` |
 | Bedrock Knowledge Base + S3 Vectors | ⬜ Phase 3 (proven by CLI spike, `docs/spikes/`) | — |
 | Grounded chat end to end | ⬜ Phase 4 | — |
 | Visual design | ⬜ UI track | — |
@@ -169,7 +169,7 @@ sequenceDiagram
 
 The **user identity always comes from the verified token's `sub` claim**, never from the request body. Every database key and S3 path is built from it, so one user can't reach another user's data.
 
-### 4.3 Uploading a PDF 🧪 (code ready, AWS in Phase 2)
+### 4.3 Uploading a PDF ✅ (live-tested in Phase 2; the Knowledge Base step arrives in Phase 3)
 
 ```mermaid
 sequenceDiagram
@@ -293,7 +293,7 @@ flowchart LR
 |---|---|---|
 | 0 Setup & validation | Secure account, budget, CLI, model checks, bootstrap, Knowledge Base spike | ✅ Done 2026-11-19 (spike report in `docs/spikes/`) |
 | 1 Secure skeleton | Login, protected API, hosted website, deploy/destroy | ✅ Done 2026-11-18 |
-| 2 Secure upload | Document bucket, DynamoDB, adapters, real uploads | ⬜ |
+| 2 Secure upload | Document bucket, DynamoDB, adapters, real uploads | ✅ Done 2026-11-19 |
 | 3 RAG ingestion | Knowledge Base + S3 Vectors in CDK, per-document indexing | ⬜ |
 | 4 Grounded chat | Filtered `RetrieveAndGenerate`, citations, evaluation set | ⬜ MVP complete here |
 | UI track | Visual design in mock mode | ⬜ Any time, free |
