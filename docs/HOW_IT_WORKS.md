@@ -42,7 +42,7 @@ Everything is **serverless**: there are no servers to manage, and you pay per re
 | Chat logic and citation mapping | 🧪 | `backend/src/clouddocs/services/chat.py`, `rag.py` |
 | Frontend upload, list, chat and real API client | 🧪 | `frontend/src/components/`, `frontend/src/api/http.ts` |
 | Document bucket, DynamoDB table, boto3 adapters | ⬜ Phase 2 | — |
-| Bedrock Knowledge Base + S3 Vectors | ⬜ Phase 3 (spike P0-07 first) | — |
+| Bedrock Knowledge Base + S3 Vectors | ⬜ Phase 3 (proven by CLI spike, `docs/spikes/`) | — |
 | Grounded chat end to end | ⬜ Phase 4 | — |
 | Visual design | ⬜ UI track | — |
 | Alarms, IAM review, Guardrails | ⬜ Phase 5 | — |
@@ -197,7 +197,8 @@ sequenceDiagram
         D->>DB: status FAILED (INVALID_FILE)
     else valid
         D->>DB: status UPLOADED
-        D->>KB: IngestKnowledgeBaseDocuments (+ userId metadata)
+        D->>S3: write <key>.metadata.json {userId, documentId}
+        D->>KB: IngestKnowledgeBaseDocuments (PDF + metadata S3 locations)
         D->>DB: status INDEXING
         D-->>B: 202 {document}
     end
@@ -290,7 +291,7 @@ flowchart LR
 
 | Phase | Goal | Status |
 |---|---|---|
-| 0 Setup & validation | Secure account, budget, CLI, model checks, bootstrap, **Knowledge Base spike** | 🟡 Spike (P0-07) is next |
+| 0 Setup & validation | Secure account, budget, CLI, model checks, bootstrap, Knowledge Base spike | ✅ Done 2026-11-19 (spike report in `docs/spikes/`) |
 | 1 Secure skeleton | Login, protected API, hosted website, deploy/destroy | ✅ Done 2026-11-18 |
 | 2 Secure upload | Document bucket, DynamoDB, adapters, real uploads | ⬜ |
 | 3 RAG ingestion | Knowledge Base + S3 Vectors in CDK, per-document indexing | ⬜ |

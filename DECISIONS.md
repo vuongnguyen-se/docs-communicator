@@ -37,7 +37,8 @@ Short records of decisions that shape the project. Add a new entry instead of si
 - **Why:** This is the documented project scope. One managed service replaces the extract, embed and vector-dump pipeline from the reference diagram (see D-010).
 
 ## D-006 — Ingestion: Knowledge Base direct ingestion API
-- **Status:** Verify (P0-07 spike)
+- **Status:** Accepted (proven in spike P0-07, 2026-11-19, `docs/spikes/2026-11-19-knowledge-base-spike.md`)
+- **Spike finding:** with an S3 data source, metadata must also come from S3. The backend writes a sidecar `<pdf key>.metadata.json` (`{"metadataAttributes": {"userId", "documentId"}}`) before ingesting, and deletes it with the PDF. Indexing took about 5 s; delete about 5 s.
 - **Why:** A normal `StartIngestionJob` syncs the whole data source at once, which conflicts with tracking status per document. `IngestKnowledgeBaseDocuments` handles one document at a time, and `DeleteKnowledgeBaseDocuments` gives a real delete path.
 - **Known constraints from AWS docs:**
   - At most 25 documents per API call.
@@ -47,7 +48,7 @@ Short records of decisions that shape the project. Add a new entry instead of si
 - **Fallback:** Serialized `StartIngestionJob` with a DynamoDB "sync lock" item, so sync jobs never overlap.
 
 ## D-007 — Vector store: Amazon S3 Vectors (preferred)
-- **Status:** Verify (P0-06)
+- **Status:** Accepted (proven in spike P0-07: Knowledge Base with `S3_VECTORS` ACTIVE in ap-southeast-1; index float32, 1024 dims, cosine)
 - **Why:** Pay-per-use with no idle compute cost, which suits D-002. S3 Vectors itself is available in ap-southeast-1. AWS docs say Knowledge Bases support S3 Vectors "in all regions where both Bedrock and S3 Vectors are available" (prior research, 2026-11-14). P0-06/P0-07 confirm this by actually creating a Knowledge Base.
 - **Fallbacks, in order:**
   1. Bedrock-managed vector store option, if offered in the Region.
@@ -73,6 +74,7 @@ Short records of decisions that shape the project. Add a new entry instead of si
   - Cohere Embed Multilingual v3 ✅ (Vietnamese input, 1024-dim vector).
   - `apac.amazon.nova-lite-v1:0` ✅.
   - `global.anthropic.claude-haiku-5-5` ❌ `AccessDeniedException: ... not available for this account`. Needs the Anthropic first-time-use form in the Bedrock console. This does not block the MVP, because Nova Lite is the default.
+- **Spike P0-07 (2026-11-19):** Bedrock's *default* RAG prompt makes Nova Lite emit junk (`Action: GlobalDataSource.search(...)`) and fail on Vietnamese questions. A **custom prompt template** fixed both: clean answers, Vietnamese answers in Vietnamese, refusals when not found. A custom template is therefore **required**. Cross-lingual retrieval (Vietnamese question → English document) works.
 - **Plan:** Start with Nova Lite (`apac.`). Switch to Claude Haiku through one config value if Vietnamese answer quality fails the P4-06 evaluation.
 - `RetrieveAndGenerate` must receive the **inference profile ARN**, not a bare model ID.
 - Model IDs and ARNs live in configuration (CDK context or env vars), never hard-coded in Lambda code.

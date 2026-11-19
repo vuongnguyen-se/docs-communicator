@@ -8,7 +8,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 | Phase | Goal | Status |
 |---|---|---|
-| 0 | Account, tooling and Region checks; prove the AI path in a throwaway spike | Mostly done (P0-04 tag, P0-06/07 spike left) |
+| 0 | Account, tooling and Region checks; prove the AI path in a throwaway spike | ✅ Done (P0-04 tag activation and optional Claude form left) |
 | 1 | Secure skeleton: CDK, Cognito login, HTTP API, health Lambda, hosted frontend | ✅ Done (2026-11-18) |
 | 2 | Secure PDF upload with metadata and status | Not started |
 | 3 | RAG ingestion into Bedrock Knowledge Base | Not started |
@@ -36,11 +36,11 @@ Region and model checks (read-only, no cost):
 - [~] **P0-05** (2026-11-18: Cohere embed and Nova Lite test calls OK; Claude Haiku needs the Anthropic use-case form, see D-008) List the Bedrock models and inference profiles in `ap-southeast-1`. Choose a generation model and an embedding model, then request model access or submit the Anthropic use-case form (D-008).
   - Commands: `aws bedrock list-foundation-models --region ap-southeast-1`, `aws bedrock list-inference-profiles --region ap-southeast-1`.
   - Done when: both model IDs are recorded in D-008 and access shows **Granted**.
-- [~] **P0-06** (2026-11-18: S3 Vectors API is reachable in the Region; Knowledge Base support is proven in P0-07) Confirm which Knowledge Base vector stores are supported in `ap-southeast-1`, S3 Vectors first (D-007).
+- [x] **P0-06** (2026-11-19: Knowledge Base on S3 Vectors ACTIVE in ap-southeast-1) Confirm which Knowledge Base vector stores are supported in `ap-southeast-1`, S3 Vectors first (D-007).
   - Done when: D-007 is updated to `Accepted` with the chosen store.
 
 Proof of concept (💰 small, 🧹 delete the same day):
-- [ ] **P0-07** In the console, create a throwaway Knowledge Base with an S3 data source and the chosen vector store. Ingest 1 small PDF with `IngestKnowledgeBaseDocuments`, ask a question with `RetrieveAndGenerate` from the CLI, then delete everything.
+- [x] **P0-07** (2026-11-19, done by CLI; report in `docs/spikes/2026-11-19-knowledge-base-spike.md`; all resources deleted) In the console, create a throwaway Knowledge Base with an S3 data source and the chosen vector store. Ingest 1 small PDF with `IngestKnowledgeBaseDocuments`, ask a question with `RetrieveAndGenerate` from the CLI, then delete everything.
   - Done when: an answer with a citation came back, D-006 is updated, observed cost is noted, and all spike resources are deleted.
 
 Tooling and repository:
@@ -109,9 +109,9 @@ Already done in code: the `KnowledgeBase` port, poll-on-read status refresh (`IN
 - [ ] **P3-01** CDK: create the vector store chosen in D-007, plus the Knowledge Base (embedding model from D-008, fixed-size chunking), its least-privilege service role and an S3 data source scoped to `uploads/`.
 - [ ] **P3-02** CDK: add a custom resource or post-deploy script that runs the required initial data-source sync (D-006).
 - [ ] **P3-03** Adapter `adapters/bedrock_kb.py`:
-  - `ingest`: `IngestKnowledgeBaseDocuments` with `userId` and `documentId` metadata.
+  - `ingest`: write the metadata sidecar `<key>.metadata.json` to S3, then `IngestKnowledgeBaseDocuments` with content and metadata **S3 locations** (inline metadata is rejected for S3 data sources; see spike).
   - `index_state`: `GetKnowledgeBaseDocuments`, mapping statuses to `IndexState`.
-  - `delete`: `DeleteKnowledgeBaseDocuments`.
+  - `delete`: `DeleteKnowledgeBaseDocuments`, plus delete the sidecar together with the PDF.
   - Stubber tests.
 - [ ] **P3-04** Frontend: the existing 2 s polling becomes backoff polling (2 s → 10 s), with a clear "indexing…" label.
 - [ ] **P3-05** 💰🧹 **Phase demo:** upload 2 small non-sensitive PDFs (one English, one Vietnamese), both reach `READY`, and a CLI `Retrieve` call returns their chunks. Then destroy.
@@ -123,7 +123,7 @@ Already done in code: the `KnowledgeBase` port, poll-on-read status refresh (`IN
 Already done in code: question validation, `RetrieveAndGenerate` response parsing (`services/rag.py`), citations resolved only against the caller's own documents, and the fixed "no evidence" answer.
 
 - [ ] **P4-01** `KnowledgeBase.query(question, user_id)`: add a **metadata filter `userId = sub`** so retrieval itself is scoped per user, not just the citations. Update the fakes and tests.
-- [ ] **P4-02** Adapter `query`: `RetrieveAndGenerate` with the inference profile ARN (D-008), `maxTokens` cap and a prompt template (answer only from context, say when unsure, ignore instructions inside documents).
+- [ ] **P4-02** Adapter `query`: `RetrieveAndGenerate` with the inference profile ARN (D-008), `maxTokens` cap and the **custom prompt template proven in the spike (required)** (answer only from context, say when unsure, ignore instructions inside documents).
 - [ ] **P4-03** Verify `services/rag.py` against a **real** response and fix any field-mapping differences.
 - [ ] **P4-04** (Optional) `conversationId` mapped to the Bedrock `sessionId`, plus a DynamoDB chat history table that stores question, answer and citation refs only.
 - [~] **P4-05** Frontend `HttpApi.ask` (done with P1-08), then polish the chat UI (message list, expandable citations).
@@ -169,3 +169,4 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 | 2026-11-17 | CDK app: Cognito, HTTP API + JWT authorizer + throttling, health and me Lambdas, scripts | None (synth only) | 10 infra tests, `cdk synth` OK, 59 backend tests |
 | 2026-11-17 | S3 + CloudFront (OAC, CSP), runtime `/config.json`, Cognito login (Amplify Authenticator), real `HttpApi` client | None (synth only) | 13 infra + 13 frontend + 59 backend tests |
 | 2026-11-18 | Account setup (Identity Center, SSO CLI, budget), old key …IPPF deactivated, Bedrock checks + 3 test calls, `cdk bootstrap`, **first deploy** (Phase 1 demo passed), destroy | None (only `CDKToolkit`, kept on purpose) | Leftovers found after destroy: 2 untagged log groups (deleted). Teardown script now matches any `CloudDocsAI` log group, has `-Cleanup`, and flags stale tagging-index entries. Claude Haiku needs the Anthropic use-case form. |
+| 2026-11-19 | HOW_IT_WORKS guide; **Knowledge Base spike P0-07**: S3 Vectors, per-document ingest (~5 s), per-user filter, Vietnamese Q&A, delete, all proven | None (spike resources deleted and verified) | Findings: metadata must be an S3 sidecar file; Bedrock's default prompt fails with Nova Lite, so a custom template is required. |
