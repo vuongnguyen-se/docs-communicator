@@ -236,6 +236,7 @@ def test_documents_lambda_iam_is_least_privilege(template: Template) -> None:
         "s3:GetObject",
         "s3:DeleteObject",
         "s3:ListBucket",
+        "bedrock:StartIngestionJob",
         "bedrock:IngestKnowledgeBaseDocuments",
         "bedrock:GetKnowledgeBaseDocuments",
         "bedrock:DeleteKnowledgeBaseDocuments",
@@ -348,6 +349,7 @@ def test_documents_lambda_can_only_manage_documents_in_this_kb(template: Templat
         "bedrock:DeleteKnowledgeBaseDocuments",
         "bedrock:GetKnowledgeBaseDocuments",
         "bedrock:IngestKnowledgeBaseDocuments",
+        "bedrock:StartIngestionJob",
     ]
     assert "KnowledgeBase" in str(bedrock[0]["Resource"])  # the KB's ARN, not "*"
 

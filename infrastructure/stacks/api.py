@@ -101,7 +101,10 @@ class Api(Construct):
         self.documents_fn.add_to_role_policy(
             iam.PolicyStatement(
                 # Per-document ingestion, status and removal on this Knowledge Base only (D-006).
+                # AWS authorizes IngestKnowledgeBaseDocuments as bedrock:StartIngestionJob
+                # (found in the Phase 3 demo: AccessDenied without it).
                 actions=[
+                    "bedrock:StartIngestionJob",
                     "bedrock:IngestKnowledgeBaseDocuments",
                     "bedrock:GetKnowledgeBaseDocuments",
                     "bedrock:DeleteKnowledgeBaseDocuments",
