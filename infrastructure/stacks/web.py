@@ -71,6 +71,8 @@ def content_security_policy(region: str) -> str:
             "'self'",
             f"https://*.execute-api.{region}.amazonaws.com",
             f"https://cognito-idp.{region}.amazonaws.com",
+            # Phase 2: browser uploads PDFs straight to S3 with a presigned POST.
+            f"https://*.s3.{region}.amazonaws.com",
         ]
     )
     return "; ".join(

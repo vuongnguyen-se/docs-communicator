@@ -73,7 +73,7 @@ def test_stage_is_throttled(template: Template) -> None:
 
 
 def test_app_lambdas_use_python312_arm64(template: Template) -> None:
-    for name in ("HealthFunction", "MeFunction"):
+    for name in ("HealthFunction", "MeFunction", "DocumentsFunction"):
         fns = {k: v for k, v in template.find_resources("AWS::Lambda::Function").items() if name in k}
         assert len(fns) == 1, name
         props = next(iter(fns.values()))["Properties"]
@@ -98,8 +98,9 @@ def test_resources_are_tagged(template: Template) -> None:
     )
 
 
-def test_site_bucket_is_private_and_auto_deleted(template: Template) -> None:
-    template.has_resource_properties(
+def test_buckets_are_private_and_auto_deleted(template: Template) -> None:
+    template.resource_count_is("AWS::S3::Bucket", 2)  # site + documents
+    template.all_resources_properties(
         "AWS::S3::Bucket",
         {
             "PublicAccessBlockConfiguration": {
@@ -146,3 +147,101 @@ def test_api_cors_allows_only_configured_and_cloudfront_origins(template: Templa
 
 def test_site_deployment_writes_runtime_config(template: Template) -> None:
     template.resource_count_is("Custom::CDKBucketDeployment", 1)
+
+
+# ---------------------------------------------------------------- Phase 2: documents
+
+
+def _documents_fn(template: Template) -> tuple[str, dict]:
+    fns = {k: v for k, v in template.find_resources("AWS::Lambda::Function").items() if "DocumentsFunction" in k}
+    assert len(fns) == 1
+    return next(iter(fns.items()))
+
+
+def test_documents_table_is_on_demand_pk_sk_and_destroyable(template: Template) -> None:
+    template.has_resource(
+        "AWS::DynamoDB::Table",
+        {
+            "Properties": Match.object_like(
+                {
+                    "BillingMode": "PAY_PER_REQUEST",
+                    "KeySchema": [
+                        {"AttributeName": "PK", "KeyType": "HASH"},
+                        {"AttributeName": "SK", "KeyType": "RANGE"},
+                    ],
+                }
+            ),
+            "DeletionPolicy": "Delete",
+        },
+    )
+
+
+def test_documents_bucket_is_private_with_post_only_cors(template: Template) -> None:
+    buckets = [
+        v["Properties"] for k, v in template.find_resources("AWS::S3::Bucket").items() if "DocumentsBucket" in k
+    ]
+    assert len(buckets) == 1
+    props = buckets[0]
+    assert props["PublicAccessBlockConfiguration"]["RestrictPublicBuckets"] is True
+    rules = props["CorsConfiguration"]["CorsRules"]
+    assert len(rules) == 1 and rules[0]["AllowedMethods"] == ["POST"]
+    assert "*" not in rules[0]["AllowedOrigins"] and "http://localhost:5173" in rules[0]["AllowedOrigins"]
+
+
+def test_documents_routes_exist_and_require_jwt(template: Template) -> None:
+    routes = {
+        r["Properties"]["RouteKey"]: r["Properties"].get("AuthorizationType")
+        for r in template.find_resources("AWS::ApiGatewayV2::Route").values()
+    }
+    for key in [
+        "POST /documents/upload-url",
+        "POST /documents/{id}/complete",
+        "GET /documents",
+        "GET /documents/{id}",
+    ]:
+        assert routes.get(key) == "JWT", key
+    assert "DELETE /documents/{id}" not in routes  # wired in Phase 5
+
+
+def test_documents_lambda_gets_table_and_bucket_from_env(template: Template) -> None:
+    _, fn = _documents_fn(template)
+    env = fn["Properties"]["Environment"]["Variables"]
+    assert set(env) == {"DOCUMENTS_TABLE", "DOCUMENTS_BUCKET"}
+
+
+def test_documents_lambda_iam_is_least_privilege(template: Template) -> None:
+    name, fn = _documents_fn(template)
+    role_ref = fn["Properties"]["Role"]["Fn::GetAtt"][0]
+    policies = [
+        p["Properties"]["PolicyDocument"]["Statement"]
+        for p in template.find_resources("AWS::IAM::Policy").values()
+        if {"Ref": role_ref} in p["Properties"]["Roles"]
+    ]
+    statements = [s for group in policies for s in group]
+    actions = set()
+    for st in statements:
+        acts = st["Action"] if isinstance(st["Action"], list) else [st["Action"]]
+        actions.update(acts)
+        assert st["Resource"] != "*", f"wildcard resource in {name}: {st}"
+        assert not any(a.endswith(":*") for a in acts), f"wildcard action: {acts}"
+    assert actions == {
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Query",
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject",
+        "s3:ListBucket",
+    }
+    listing = next(s for s in statements if s["Action"] == "s3:ListBucket")
+    assert listing["Condition"] == {"StringLike": {"s3:prefix": ["uploads/*"]}}
+
+
+def test_csp_allows_browser_upload_to_regional_s3(template: Template) -> None:
+    policy = next(iter(template.find_resources("AWS::CloudFront::ResponseHeadersPolicy").values()))
+    csp = policy["Properties"]["ResponseHeadersPolicyConfig"]["SecurityHeadersConfig"]["ContentSecurityPolicy"][
+        "ContentSecurityPolicy"
+    ]
+    assert "https://*.s3.ap-southeast-1.amazonaws.com" in csp

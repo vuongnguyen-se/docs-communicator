@@ -10,6 +10,7 @@ from constructs import Construct
 from .api import Api
 from .auth import Auth
 from .config import Config
+from .data import Data
 from .web import Web
 
 
@@ -20,13 +21,17 @@ class CloudDocsStack(Stack):
         auth = Auth(self, "Auth")
         # Web first: the API's CORS needs the CloudFront domain.
         web = Web(self, "Web", region=config.region)
+        origins = [*config.allowed_origins, web.url]
+        data = Data(self, "Data", allowed_origins=origins)
         api = Api(
             self,
             "Api",
             config=config,
-            allowed_origins=[*config.allowed_origins, web.url],
+            allowed_origins=origins,
             user_pool=auth.user_pool,
             user_pool_client=auth.client,
+            documents_table=data.table,
+            documents_bucket=data.bucket,
         )
         web.deploy_site(
             {

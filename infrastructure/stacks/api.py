@@ -12,8 +12,11 @@ from aws_cdk import aws_apigatewayv2 as apigw
 from aws_cdk import aws_apigatewayv2_authorizers as authorizers
 from aws_cdk import aws_apigatewayv2_integrations as integrations
 from aws_cdk import aws_cognito as cognito
+from aws_cdk import aws_dynamodb as dynamodb
+from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
 from aws_cdk import aws_logs as logs
+from aws_cdk import aws_s3 as s3
 from constructs import Construct
 
 from .backend_code import ARCHITECTURE, RUNTIME, backend_code
@@ -30,6 +33,8 @@ class Api(Construct):
         allowed_origins: list[str],
         user_pool: cognito.IUserPool,
         user_pool_client: cognito.IUserPoolClient,
+        documents_table: dynamodb.ITable,
+        documents_bucket: s3.IBucket,
     ) -> None:
         super().__init__(scope, construct_id)
         self._code = backend_code()
@@ -78,11 +83,62 @@ class Api(Construct):
             integration=integrations.HttpLambdaIntegration("MeIntegration", me),
         )
 
+        # Documents API (Phase 2). DELETE is wired in Phase 5 once the Knowledge Base exists.
+        self.documents_fn = self._function(
+            "Documents",
+            "clouddocs.handlers.documents.handler",
+            environment={
+                "DOCUMENTS_TABLE": documents_table.table_name,
+                "DOCUMENTS_BUCKET": documents_bucket.bucket_name,
+            },
+        )
+        self._grant_documents_access(self.documents_fn, documents_table, documents_bucket)
+        docs_integration = integrations.HttpLambdaIntegration("DocumentsIntegration", self.documents_fn)
+        for method, path in [
+            (apigw.HttpMethod.POST, "/documents/upload-url"),
+            (apigw.HttpMethod.POST, "/documents/{id}/complete"),
+            (apigw.HttpMethod.GET, "/documents"),
+            (apigw.HttpMethod.GET, "/documents/{id}"),
+        ]:
+            self.http_api.add_routes(path=path, methods=[method], integration=docs_integration)
+
     @property
     def url(self) -> str:
         return self.stage.url
 
-    def _function(self, name: str, handler: str) -> lambda_.Function:
+    @staticmethod
+    def _grant_documents_access(
+        fn: lambda_.IFunction, table: dynamodb.ITable, bucket: s3.IBucket
+    ) -> None:
+        """Least privilege: only the item operations the repository uses, only the uploads/ prefix."""
+        table.grant(
+            fn,
+            "dynamodb:GetItem",
+            "dynamodb:PutItem",
+            "dynamodb:UpdateItem",
+            "dynamodb:DeleteItem",
+            "dynamodb:Query",
+        )
+        fn.add_to_role_policy(
+            iam.PolicyStatement(
+                # PutObject: the presigned POST is signed with this role's credentials.
+                # GetObject: HeadObject + reading the first bytes (PDF check).
+                actions=["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+                resources=[bucket.arn_for_objects("uploads/*")],
+            )
+        )
+        fn.add_to_role_policy(
+            iam.PolicyStatement(
+                # Without ListBucket, S3 answers 403 instead of 404 for a missing object.
+                actions=["s3:ListBucket"],
+                resources=[bucket.bucket_arn],
+                conditions={"StringLike": {"s3:prefix": ["uploads/*"]}},
+            )
+        )
+
+    def _function(
+        self, name: str, handler: str, environment: dict[str, str] | None = None
+    ) -> lambda_.Function:
         log_group = logs.LogGroup(
             self,
             f"{name}Logs",
@@ -100,4 +156,5 @@ class Api(Construct):
             timeout=Duration.seconds(10),
             log_group=log_group,
             logging_format=lambda_.LoggingFormat.JSON,
+            environment=environment or {},
         )

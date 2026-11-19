@@ -10,7 +10,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 |---|---|---|
 | 0 | Account, tooling and Region checks; prove the AI path in a throwaway spike | ✅ Done (P0-04 tag activation and optional Claude form left) |
 | 1 | Secure skeleton: CDK, Cognito login, HTTP API, health Lambda, hosted frontend | ✅ Done (2026-11-18) |
-| 2 | Secure PDF upload with metadata and status | Not started |
+| 2 | Secure PDF upload with metadata and status | Code done (75 backend + 19 infra tests); demo P2-07 pending |
 | 3 | RAG ingestion into Bedrock Knowledge Base | Not started |
 | 4 | Grounded chat with citations | Not started |
 | 5 | Hardening: delete flow, IAM review, alarms, Guardrails | Not started |
@@ -88,11 +88,11 @@ Operations:
 
 Already done in code (logic + tests, no AWS yet): validation, server-generated keys, the document limit, the status state machine, the `%PDF-` magic check on complete, owner scoping, and idempotent complete.
 
-- [ ] **P2-01** CDK: private document bucket with block public access, SSE-S3 encryption, enforced TLS, CORS for POST from the site origin, and lifecycle rules (expire stale `uploads/`, abort incomplete multipart uploads).
-- [ ] **P2-02** CDK: DynamoDB `Documents` table (on-demand, PK/SK as in `DATABASE_DESIGN.md`, PITR off for dev).
-- [ ] **P2-03** Adapter `adapters/dynamodb_repo.py` implementing `DocumentRepository`. `update_status` uses a conditional write; `list` uses a Query, never a Scan. Test it with `botocore` Stubber.
-- [ ] **P2-04** Adapter `adapters/s3_storage.py` implementing `ObjectStorage`: presigned POST with `content-length-range` and `Content-Type` conditions (D-013), `head` with a ranged GET of the first bytes, and `delete`.
-- [ ] **P2-05** `container.py`: a boto3-backed `Services` factory built from env vars. Wire up the documents Lambda routes and grant least-privilege IAM (bucket prefix and table only).
+- [x] **P2-01** CDK (`stacks/data.py`): private document bucket with block public access, SSE-S3 encryption, enforced TLS, CORS for POST from our origins only, and a lifecycle rule to abort incomplete multipart uploads. An age-based expiry of `uploads/` was dropped, because it would also delete real documents; stale `PENDING_UPLOAD` records are moot in ephemeral environments.
+- [x] **P2-02** CDK: DynamoDB `Documents` table (on-demand, PK/SK as in `DATABASE_DESIGN.md`, PITR off for dev).
+- [x] **P2-03** (10 Stubber tests) Adapter `adapters/dynamodb_repo.py` implementing `DocumentRepository`. `update_status` uses a conditional write; `list` uses a Query, never a Scan. Test it with `botocore` Stubber.
+- [x] **P2-04** (6 tests; the policy is decoded and checked) Adapter `adapters/s3_storage.py` implementing `ObjectStorage`: presigned POST with `content-length-range` and `Content-Type` conditions (D-013), `head` with a ranged GET of the first bytes, and `delete`.
+- [x] **P2-05** `container.py`: a boto3-backed `Services` factory built from env vars, with `PendingKnowledgeBase` until Phase 3, so documents stay `INDEXING` and are never falsely `READY`. Documents Lambda and 4 routes wired; IAM limited to 5 DynamoDB item actions plus S3 Put/Get/Delete on `uploads/*`, plus `ListBucket` restricted to the `uploads/` prefix (so missing objects return 404, not 403). DELETE route deferred to P5-01.
 - [x] **P2-06** Frontend `HttpApi.uploadDocument`: request the URL, then a multipart POST to S3, then `/complete`. Built and unit-tested with P1-08; verified for real in P2-07.
 - [ ] **P2-07** 💰🧹 **Phase demo:**
   - Upload a PDF and see it listed.
