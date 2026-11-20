@@ -5,13 +5,13 @@ from __future__ import annotations
 import re
 
 from ..config import Settings
+from ..lang import NO_EVIDENCE, no_evidence_message
 from ..models import ChatRequest, Citation, RagResult
 from ..validators import document_id_from_key, validate_question, validate_user_id
 from .interfaces import DocumentRepository, KnowledgeBase
 
-NO_EVIDENCE_MESSAGE = (
-    "I could not find relevant information in your documents to answer this question."
-)
+# Kept for callers and tests; the actual reply follows the question's language (UI-06).
+NO_EVIDENCE_MESSAGE = NO_EVIDENCE["en"]
 MAX_EXCERPT_CHARS = 500
 MAX_CITATIONS = 5
 _S3_URI_RE = re.compile(r"^s3://[^/]+/(.+)$")
@@ -33,7 +33,7 @@ class ChatService:
         citations = self._resolve_citations(user_id, result)
         if not citations:
             # No verifiable evidence: never return a model answer dressed up with sources.
-            return NO_EVIDENCE_MESSAGE, []
+            return no_evidence_message(question), []
         return result.answer, citations
 
     def _resolve_citations(self, user_id: str, result: RagResult) -> list[Citation]:

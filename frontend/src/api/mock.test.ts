@@ -36,8 +36,10 @@ describe("MockApi", () => {
   it("cites a READY document", async () => {
     const api = new MockApi(0, 0);
     await api.uploadDocument(pdf("tài-liệu.pdf"));
-    const res = await api.ask("what?");
+    const res = await api.ask("Tài liệu này nói về gì?");
     expect(res.citations[0]?.documentName).toBe("tài-liệu.pdf");
+    const declined = await api.ask("What is the weather today?");
+    expect(declined.citations).toEqual([]);
   });
 
   it("enforces the document limit and deletes", async () => {

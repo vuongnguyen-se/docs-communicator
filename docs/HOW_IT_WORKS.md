@@ -44,7 +44,7 @@ Everything is **serverless**: there are no servers to manage, and you pay per re
 | Document bucket, DynamoDB table, boto3 adapters | ✅ | `infrastructure/stacks/data.py`, `backend/src/clouddocs/adapters/` |
 | Bedrock Knowledge Base + S3 Vectors, per-document indexing | ✅ | `infrastructure/stacks/knowledge.py`, `backend/src/clouddocs/adapters/bedrock_kb.py` |
 | Grounded chat end to end (evaluation 11/11) | ✅ | `backend/src/clouddocs/adapters/bedrock_kb.py`, `docs/evaluation.md` |
-| Visual design | ⬜ UI track | — |
+| Visual design (brand, dark/light, phone layout) | ✅ local · deploy check pending | `frontend/src/styles.css`, `frontend/public/brand/`, D-015 |
 | Alarms, IAM review, Guardrails | ⬜ Phase 5 | — |
 | SQS/DLQ, CI/CD | ⬜ Phase 6 | — |
 

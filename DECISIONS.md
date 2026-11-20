@@ -129,3 +129,11 @@ The owner shared a reference AWS diagram: Amplify, REST API, Cognito, an extract
 - **Cost:** the Lambda package grows to about 42 MB unpacked (limit 250 MB). Measured in the Phase 3 demo: about 6.2 s for the first request after a deploy (cold start, from the laptop), 78 ms warm.
 - **Revisit:** if cold starts matter, trim botocore's unused service models or use a Lambda layer.
 
+## D-015 — Visual design: the owner's brand on the approved UI-01 layout
+- **Status:** Accepted (2026-11-20)
+- **Process:** The owner's taste-skill (tasteskill 2.5.1) dealt the palette and type for an AI software product (charcoal and sage, Geist). Its marketing-page rules (hero, one section per screen, photographs, finish gate) were not applied, because the product is a signed-in app workspace. The layout was approved on a canvas mockup, then the owner's own logo, mark and colours replaced the dealt palette, as the skill itself requires for client brands.
+- **Brand:** navy `#0F1535`, blue `#3B4BDB` (light) / `#5B6CFF` (dark), periwinkle `#AEB7FF`, amber `#FFB547`. Contrast-checked adjustments: dark-mode buttons `#4F60F5` (white text 4.86:1), periwinkle for accent text on navy (9.3:1), amber decorative only (1.76:1 as text on white), a dark-mode copy of the mark in `#5B6CFF`.
+- **Name:** "Clouddocs" everywhere in the app, as in the logo.
+- **Fonts:** Geist and Geist Mono, self-hosted (`public/fonts`, OFL) with Latin, Latin Extended and Vietnamese subsets, because the CSP allows fonts from 'self' only.
+- **Brand files:** `frontend/public/brand/`: transparent, cropped copies of the owner's logos, the mark (plus its dark-mode copy) and the app icon (used as favicon). Originals are kept by the owner.
+

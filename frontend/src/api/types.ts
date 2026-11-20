@@ -35,8 +35,10 @@ export interface ApiClient {
   whoAmI(): Promise<string>;
   listDocuments(): Promise<DocumentInfo[]>;
   getDocument(id: string): Promise<DocumentInfo>;
-  /** Runs the full flow: presigned URL -> direct upload -> complete. */
-  uploadDocument(file: File): Promise<DocumentInfo>;
+  /** Runs the full flow: presigned URL -> direct upload -> complete. `onProgress` gets 0..1 for the S3 upload. */
+  uploadDocument(file: File, onProgress?: (fraction: number) => void): Promise<DocumentInfo>;
+  /** False until the backend wires DELETE (P5-01): the UI hides the action instead of failing. */
+  readonly canDelete: boolean;
   deleteDocument(id: string): Promise<void>;
   ask(question: string): Promise<ChatAnswer>;
 }

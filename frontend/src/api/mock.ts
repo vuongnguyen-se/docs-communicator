@@ -1,10 +1,12 @@
 import { ApiError, type ApiClient, type ChatAnswer, type DocumentInfo } from "./types";
+import { stringsFor } from "../lang";
 import { validateFile, validateQuestion } from "./validation";
 
 const MAX_DOCS = 5;
 
 /** In-memory API used for local development and tests. Simulates indexing delay. */
 export class MockApi implements ApiClient {
+  readonly canDelete = true;
   private docs = new Map<string, DocumentInfo & { readyAt: number }>();
   private seq = 0;
 
@@ -41,8 +43,12 @@ export class MockApi implements ApiClient {
     return this.view(d);
   }
 
-  async uploadDocument(file: File): Promise<DocumentInfo> {
-    await this.delay();
+  async uploadDocument(file: File, onProgress?: (fraction: number) => void): Promise<DocumentInfo> {
+    // Simulated transfer so the per-file progress bar can be seen in mock mode.
+    for (const f of [0.15, 0.4, 0.7, 1]) {
+      await this.delay();
+      onProgress?.(f);
+    }
     const problem = validateFile(file);
     if (problem) throw new ApiError("VALIDATION_ERROR", problem, 400);
     if (this.docs.size >= MAX_DOCS) {
@@ -75,18 +81,19 @@ export class MockApi implements ApiClient {
     if (problem) throw new ApiError("VALIDATION_ERROR", problem, 400);
     const ready = [...this.docs.values()].map((d) => this.view(d)).filter((d) => d.status === "READY");
     const requestId = `mock-${Date.now()}`;
-    if (ready.length === 0) {
-      return {
-        answer: "I could not find relevant information in your documents to answer this question.",
-        citations: [],
-        requestId,
-      };
+    // Mock rule: a document "answers" only if the question names a word from its file name
+    // (e.g. "nimbus" for nimbus-handbook.pdf); anything else is declined, like an unrelated question.
+    const words = question.toLowerCase();
+    const match = ready.find((d) =>
+      d.filename.toLowerCase().replace(/\.pdf$/, "").split(/[^a-z0-9à-ỹ]+/).some((w) => w.length >= 4 && words.includes(w)),
+    );
+    if (!match) {
+      return { answer: stringsFor(question).noEvidenceAnswer, citations: [], requestId };
     }
-    const first = ready[0]!;
     return {
-      answer: `(mock answer) Based on "${first.filename}": this is a placeholder response to "${question.trim()}".`,
+      answer: `(mock answer) From "${match.filename}": a placeholder response to "${question.trim()}".`,
       citations: [
-        { documentId: first.documentId, documentName: first.filename, excerpt: "Mock excerpt from the document." },
+        { documentId: match.documentId, documentName: match.filename, excerpt: "Mock excerpt: the passage the answer came from appears here." },
       ],
       requestId,
     };

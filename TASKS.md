@@ -134,13 +134,13 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 
 ## UI design track (frontend only, no AWS cost; can run in parallel using mock mode)
 
-- [ ] **UI-01** Design direction: layout (documents sidebar + chat main area), colours, typography, light and dark mode. Agree on a mockup before coding.
-- [ ] **UI-02** Implement the layout and styles (plain CSS, design tokens), plus a styled Cognito login screen that matches.
-- [ ] **UI-03** Components: upload drop zone with **multi-file selection** (owner request, 2026-11-19) and per-file progress, document cards with status badges, chat bubbles, expandable citations, empty, loading and error states.
-- [ ] **UI-04** Accessibility and responsive check (keyboard, contrast, mobile width).
-- [ ] **UI-05** Fix misleading error: a missing API route currently shows "Cannot reach the server" (API Gateway's 404 has no CORS headers, so the browser reports a network error). This disappears once Phase 2 routes exist; still show a clearer message.
+- [x] **UI-01** (2026-11-20: canvas mockup approved after the owner's brand was applied; D-015) Design direction: layout (documents sidebar + chat main area), colours, typography, light and dark mode. Agree on a mockup before coding.
+- [x] **UI-02** (self-hosted Geist fonts, dark/light tokens, layout, styled sign-in; the Cognito screen's styling is verified on the next deploy) Implement the layout and styles (plain CSS, design tokens), plus a styled Cognito login screen that matches.
+- [x] **UI-03** (multi-file drag-and-drop, per-file progress via XHR, per-file rejection, document cards, chat bubbles, source chips) Components: upload drop zone with **multi-file selection** (owner request, 2026-11-19) and per-file progress, document cards with status badges, chat bubbles, expandable citations, empty, loading and error states.
+- [x] **UI-04** (headless check: every control named, 0 small buttons, no sideways scroll, alt text, skip link, focus rings, reduced motion; phone layout with collapsible documents and a pinned question box) Accessibility and responsive check (keyboard, contrast, mobile width).
+- [x] **UI-05** (clearer network/404/401/upload messages; Delete hidden until P5-01 wires it) Fix misleading error: a missing API route currently shows "Cannot reach the server" (API Gateway's 404 has no CORS headers, so the browser reports a network error). This disappears once Phase 2 routes exist; still show a clearer message.
 
-- [ ] **UI-06** The no-evidence answer is a fixed English sentence; answer in the question's language (Vietnamese questions currently get English).
+- [x] **UI-06** (the decline answer and the 'no source' note follow the question's language (backend clouddocs/lang.py + frontend lang.ts)) The no-evidence answer is a fixed English sentence; answer in the question's language (Vietnamese questions currently get English).
 
 ---
 
@@ -175,3 +175,4 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 | 2026-11-19 | **Phase 2** built (adapters, bucket, table, documents API) and demoed: 19/19 live checks (401, validation, S3 policy key/size enforcement, encrypted storage, INDEXING not READY, user isolation 404, fake-PDF cleanup, 409 on missing upload) and a real browser upload | None | Teardown check now filters deleted Cognito pools that the tagging index keeps listing for over a day. Use non-sensitive PDFs from Phase 3 on. |
 | 2026-11-19 | Progress deck; **Phase 3** built and demoed: Knowledge Base on S3 Vectors in CDK, automatic first sync, Bedrock adapter with sidecar metadata | None (destroyed, teardown passed) | Found in the demo: per-document ingestion needs `bedrock:StartIngestionJob` (the spike ran as admin, so it could not catch this); fixed and redeployed in 32 s. READY in about 4 s. Cold start about 6 s with the bundled boto3 (D-014), warm 78 ms. Teardown cleanup now retries because helper log groups can reappear. |
 | 2026-11-20 | **Phase 4 / MVP demo**: chat endpoint deployed; evaluation 11/11; owner browser test (an English question about a Vietnamese PDF was answered with its source; questions about another user's documents were declined); all 12 acceptance criteria met | None (destroyed, teardown passed) | Found in the demo: RetrieveAndGenerate with an inference profile needs `bedrock:GetInferenceProfile`; fixed in 32 s. Added README configuration, evaluation and cleanup sections. |
+| 2026-11-20 | **UI track**: taste-skill (dealt palette/type, chat-chip pattern) → canvas mockup → owner's brand applied (logo, mark, blue/navy/amber) → built in the app; Vietnamese decline (UI-06) | None (local mock mode only) | Headless Edge driver: 8 screenshots, 0 console errors; found and fixed 2 phone bugs (panel wouldn't collapse, top bar wrapped). |

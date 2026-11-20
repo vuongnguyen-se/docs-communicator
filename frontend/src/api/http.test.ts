@@ -44,24 +44,43 @@ describe("HttpApi", () => {
     await expect(api.listDocuments()).rejects.toMatchObject({ code: "LIMIT_EXCEEDED", status: 409 });
   });
 
-  it("uploads via presigned POST without leaking the token to S3, then completes", async () => {
+  it("uploads via presigned POST with progress, without leaking the token to S3, then completes", async () => {
     const f = fakeFetch([
       { status: 201, body: { document: doc, upload: { url: "https://bucket.s3.amazonaws.com/", fields: { key: "k", policy: "p" } }, expiresInSeconds: 300 } },
-      { status: 204 },
       { status: 202, body: { document: { ...doc, status: "INDEXING" } } },
     ]);
-    const api = new HttpApi("https://api.example.com", token, f.fn);
+    const sent: { url: string; form: FormData }[] = [];
+    const send = async (url: string, form: FormData, onProgress?: (n: number) => void) => {
+      sent.push({ url, form });
+      onProgress?.(0.5);
+      onProgress?.(1);
+      return 204;
+    };
+    const api = new HttpApi("https://api.example.com", token, f.fn, send);
     const file = new File([new Uint8Array(10)], "a.pdf", { type: "application/pdf" });
+    const progress: number[] = [];
 
-    const result = await api.uploadDocument(file);
+    const result = await api.uploadDocument(file, (p) => progress.push(p));
 
     expect(result.status).toBe("INDEXING");
-    const [, s3, complete] = f.calls;
-    expect(s3!.url).toBe("https://bucket.s3.amazonaws.com/");
-    expect(s3!.init.headers).toBeUndefined();
-    const form = s3!.init.body as FormData;
-    expect([...form.keys()]).toEqual(["key", "policy", "file"]);
-    expect(complete!.url).toBe(`https://api.example.com/documents/${doc.documentId}/complete`);
+    expect(progress).toEqual([0.5, 1]);
+    expect(sent[0]!.url).toBe("https://bucket.s3.amazonaws.com/");
+    expect([...sent[0]!.form.keys()]).toEqual(["key", "policy", "file"]); // file last, no token field
+    expect(f.calls).toHaveLength(2); // the API calls only; S3 went through the form sender
+    expect(f.calls[1]!.url).toBe(`https://api.example.com/documents/${doc.documentId}/complete`);
+  });
+
+  it("reports a storage rejection clearly", async () => {
+    const f = fakeFetch([
+      { status: 201, body: { document: doc, upload: { url: "https://b/", fields: {} }, expiresInSeconds: 300 } },
+    ]);
+    const api = new HttpApi("https://api.example.com", token, f.fn, async () => 403);
+    const file = new File([new Uint8Array(10)], "a.pdf", { type: "application/pdf" });
+    await expect(api.uploadDocument(file)).rejects.toMatchObject({ code: "UPLOAD_FAILED" });
+  });
+
+  it("does not offer delete until the backend wires it (P5-01)", () => {
+    expect(new HttpApi("https://x", token).canDelete).toBe(false);
   });
 
   it("rejects invalid files before calling the API", async () => {

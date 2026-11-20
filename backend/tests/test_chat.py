@@ -89,3 +89,21 @@ def test_retrieval_is_always_scoped_to_the_caller(env: Env):
     env.chat.query(USER_A, ChatRequest(question="What is SQS?"))
     env.chat.query(USER_B, ChatRequest(question="What is SQS?"))
     assert env.kb.queries == [("What is SQS?", USER_A), ("What is SQS?", USER_B)]
+
+
+def test_decline_follows_the_question_language(env: Env):
+    from clouddocs.lang import NO_EVIDENCE
+
+    env.kb.result = RagResult(answer="anything", references=[])
+    vi, _ = env.chat.query(USER_A, ChatRequest(question="Thời tiết hôm nay thế nào?"))
+    en, _ = env.chat.query(USER_A, ChatRequest(question="What is the weather today?"))
+    assert vi == NO_EVIDENCE["vi"] and en == NO_EVIDENCE["en"]
+
+
+def test_vietnamese_detection_ignores_shared_accents():
+    from clouddocs.lang import is_vietnamese
+
+    assert is_vietnamese("Ai là kỹ sư trưởng của dự án Nimbus?")
+    assert is_vietnamese("Ngân sách năm 2026")
+    assert not is_vietnamese("Où est le café?")
+    assert not is_vietnamese("When does the Nimbus team meet?")

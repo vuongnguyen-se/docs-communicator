@@ -1,10 +1,15 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError, type ApiClient, type ChatAnswer } from "../api";
+import { MAX_QUESTION_CHARS } from "../api/types";
 import { validateQuestion } from "../api/validation";
+import { isVietnamese, stringsFor } from "../lang";
+import { DocIcon } from "./icons";
 
 interface Props {
   api: ApiClient;
   hasReadyDocuments: boolean;
+  /** The client's mark for the current theme (public/brand). */
+  mark: string;
 }
 
 interface Turn {
@@ -13,85 +18,162 @@ interface Turn {
   result: ChatAnswer;
 }
 
-/** Grounded Q&A: each answer lists only sources the backend verified as the user's own documents. */
-export function Chat({ api, hasReadyDocuments }: Props) {
+/** Grounded Q&A: every source shown is one the backend verified as the user's own document. */
+export function Chat({ api, hasReadyDocuments, mark }: Props) {
   const [question, setQuestion] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
+  const logEnd = useRef<HTMLLIElement>(null);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  useEffect(() => {
+    logEnd.current?.scrollIntoView?.({ block: "end" });
+  }, [turns, pending]);
+
+  async function submit() {
     setError(null);
     const problem = validateQuestion(question);
     if (problem) return setError(problem);
     const asked = question.trim();
-    setLoading(true);
+    setPending(asked);
+    setQuestion("");
     try {
       const result = await api.ask(asked);
       setTurns((prev) => [...prev, { id: prev.length + 1, question: asked, result }]);
-      setQuestion("");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setQuestion(asked); // give the question back so it can be retried
+      setError(err instanceof ApiError ? err.message : "Something went wrong. Try again.");
     } finally {
-      setLoading(false);
+      setPending(null);
     }
   }
 
   return (
-    <section aria-labelledby="chat-h">
-      <h2 id="chat-h">Ask your documents</h2>
-      {!hasReadyDocuments && <p>Upload a PDF and wait until it is Ready to ask questions.</p>}
+    <section className="main" aria-labelledby="chat-h">
+      <div className="chat__head">
+        <h1 id="chat-h" className="chat__title">
+          Ask your documents
+        </h1>
+        <p className="chat__sub">
+          {hasReadyDocuments
+            ? "Answers come only from your Ready PDFs, in English or Vietnamese."
+            : "Upload a PDF and wait until it is Ready to ask questions."}
+        </p>
+      </div>
 
-      {turns.length > 0 && (
-        <ol aria-label="Conversation">
-          {turns.map((t) => (
-            <li key={t.id}>
-              <p>
-                <strong>You:</strong> {t.question}
+      <ol className="chat__log" aria-label="Conversation" aria-live="polite">
+        {turns.map((t) => (
+          <TurnView key={t.id} turn={t} mark={mark} />
+        ))}
+        {pending && (
+          <>
+            <li className="turn-q">
+              <p className="bubble" lang={isVietnamese(pending) ? "vi" : undefined}>
+                {pending}
               </p>
-              <p>
-                <strong>CloudDocs AI:</strong> {t.result.answer}
-              </p>
-              {t.result.citations.length > 0 ? (
-                <details>
-                  <summary>
-                    {t.result.citations.length} source{t.result.citations.length > 1 ? "s" : ""}:{" "}
-                    {[...new Set(t.result.citations.map((c) => c.documentName))].join(", ")}
-                  </summary>
-                  <ul>
-                    {t.result.citations.map((c, i) => (
-                      <li key={`${c.documentId}-${i}`}>
-                        <strong>{c.documentName}</strong>
-                        <blockquote>{c.excerpt}</blockquote>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ) : (
-                <p>
-                  <em>No source in your documents supports an answer to this question.</em>
-                </p>
-              )}
             </li>
-          ))}
-        </ol>
-      )}
+            <li className="turn-a">
+              <img className="turn-a__avatar" src={mark} alt="" />
+              <p className="thinking" role="status">
+                Searching your documents…
+              </p>
+            </li>
+          </>
+        )}
+        <li ref={logEnd} aria-hidden="true" />
+      </ol>
 
-      <form onSubmit={(e) => void submit(e)}>
-        <textarea
-          aria-label="Question"
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          rows={3}
-          maxLength={2000}
-          placeholder="Ask a question about your documents (English or Vietnamese)"
-        />
-        <button type="submit" disabled={loading || !hasReadyDocuments}>
-          {loading ? "Searching your documents…" : "Ask"}
-        </button>
+      <form
+        className="composer"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+      >
+        <div className="composer__box">
+          <label className="sr-only" htmlFor="question">
+            Question
+          </label>
+          <textarea
+            id="question"
+            className="composer__input"
+            rows={1}
+            maxLength={MAX_QUESTION_CHARS}
+            value={question}
+            disabled={!hasReadyDocuments}
+            placeholder="Ask about your documents"
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                if (!pending && hasReadyDocuments) void submit();
+              }
+            }}
+          />
+          <button type="submit" className="btn" disabled={!!pending || !hasReadyDocuments || !question.trim()}>
+            Ask
+          </button>
+        </div>
+        <p className="composer__hint">
+          Enter to send · Shift + Enter for a new line · {question.length} / {MAX_QUESTION_CHARS}
+        </p>
+        {error && (
+          <p className="alert" role="alert" style={{ marginTop: 8 }}>
+            {error}
+          </p>
+        )}
       </form>
-      {error && <p role="alert">{error}</p>}
     </section>
+  );
+}
+
+function TurnView({ turn, mark }: { turn: Turn; mark: string }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const { question, result } = turn;
+  const vi = isVietnamese(question);
+  const declined = result.citations.length === 0;
+  const opened = open === null ? null : result.citations[open];
+
+  return (
+    <>
+      <li className="turn-q">
+        <p className="bubble" lang={vi ? "vi" : undefined}>
+          {question}
+        </p>
+      </li>
+      <li className="turn-a">
+        <img className={`turn-a__avatar${declined ? " turn-a__avatar--muted" : ""}`} src={mark} alt="" />
+        <div className="turn-a__body">
+          <p lang={isVietnamese(result.answer) ? "vi" : undefined}>{result.answer}</p>
+          {declined ? (
+            <p className="turn-a__note">{stringsFor(question).noSourceNote}</p>
+          ) : (
+            <>
+              <div className="chips" role="group" aria-label="Sources">
+                {result.citations.map((c, i) => (
+                  <button
+                    key={`${c.documentId}-${i}`}
+                    type="button"
+                    className="chip"
+                    aria-expanded={open === i}
+                    onClick={() => setOpen(open === i ? null : i)}
+                  >
+                    <DocIcon size={14} />
+                    {c.documentName}
+                    {result.citations.length > 1 && <span className="sr-only">, passage {i + 1}</span>}
+                  </button>
+                ))}
+              </div>
+              {opened && (
+                <blockquote className="excerpt" style={{ margin: 0 }}>
+                  <p className="excerpt__doc">From {opened.documentName}</p>
+                  <p>“{opened.excerpt}”</p>
+                </blockquote>
+              )}
+            </>
+          )}
+        </div>
+      </li>
+    </>
   );
 }
