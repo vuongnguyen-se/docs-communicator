@@ -79,6 +79,39 @@ powershell -ExecutionPolicy Bypass -File scripts\destroy.ps1   # always, at the 
 ```
 - `PROMPT_FOR_CODING_AGENT.md`: initial prompt to paste into your coding platform.
 
+## Configuration
+
+Nothing secret is configured anywhere: AWS access comes from your SSO login (`aws sso login --profile clouddocs-dev`), and the Lambdas use their IAM roles.
+
+| Where | Setting | Default | Notes |
+|---|---|---|---|
+| `infrastructure/cdk.json` → `context.clouddocs` | `region` | `ap-southeast-1` | D-001 |
+| | `allowedOrigins` | `["http://localhost:5173"]` | Extra CORS origins; the CloudFront URL is added automatically |
+| | `throttleRateLimit` / `throttleBurstLimit` | `5` / `10` | API Gateway limits per second |
+| | `generationModel` | `apac.amazon.nova-lite-v1:0` | Bedrock inference profile used for answers (D-008) |
+| Lambda environment (set by CDK) | `DOCUMENTS_TABLE`, `DOCUMENTS_BUCKET`, `KNOWLEDGE_BASE_ID`, `DATA_SOURCE_ID`, `MODEL_ARN` | — | Never set by hand |
+| Lambda environment (optional) | `MAX_FILE_BYTES`, `MAX_DOCUMENTS`, `MAX_QUESTION_CHARS`, `UPLOAD_URL_TTL_SECONDS` | 10 MB, 5, 2000, 300 s | `backend/src/clouddocs/config.py` |
+| Website | `/config.json` | — | Written at deploy time with the API URL and Cognito IDs (public identifiers) |
+| Local frontend | `frontend/.env.local` | mock mode | Copy `frontend/.env.example`; `VITE_API_MODE=mock` needs no AWS |
+
+The embedding model (Cohere Embed Multilingual v3, 1024 dimensions) is fixed in `infrastructure/stacks/knowledge.py`, because changing it means rebuilding the vector index.
+
+## Evaluate answer quality
+
+With a stack deployed:
+
+```bash
+python -m pip install -r eval/requirements.txt
+python eval/make_pdfs.py eval/out            # fictional English, Vietnamese and prompt-injection PDFs
+python eval/run_eval.py eval/out docs/evaluation.md
+```
+
+It runs 11 cases (known answers, cross-lingual, unrelated questions, prompt injection, two-user isolation) and writes the report to `docs/evaluation.md`.
+
+## Cost and cleanup
+
+Run `scripts\destroy.ps1` at the end of every session. It deletes the stack and then runs `check-teardown.ps1 -Cleanup`, which removes leftover log groups and fails if anything tagged `Project=CloudDocsAI` remains. Only the `CDKToolkit` bootstrap stack (a few cents a month) is kept between sessions. A demo session costs a few cents (see `TASKS.md` session log).
+
 ## Important implementation notes
 
 - Confirm service and model availability in the chosen AWS Region before provisioning.

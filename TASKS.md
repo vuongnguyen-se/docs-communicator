@@ -12,7 +12,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 | 1 | Secure skeleton: CDK, Cognito login, HTTP API, health Lambda, hosted frontend | ✅ Done (2026-11-18) |
 | 2 | Secure PDF upload with metadata and status | ✅ Done (2026-11-19) |
 | 3 | RAG ingestion into Bedrock Knowledge Base | ✅ Done (2026-11-19) |
-| 4 | Grounded chat with citations | Code done (94 backend, 28 infra, 16 frontend tests); evaluation + MVP demo pending |
+| 4 | Grounded chat with citations | ✅ Done (2026-11-20): **MVP complete** |
 | 5 | Hardening: delete flow, IAM review, alarms, Guardrails | Not started |
 | 6 | Advanced: SQS/DLQ, CI/CD, portfolio polish | Not started |
 
@@ -128,7 +128,7 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 - [ ] **P4-04** (Optional) `conversationId` mapped to the Bedrock `sessionId`, plus a DynamoDB chat history table that stores question, answer and citation refs only.
 - [x] **P4-05** Frontend `HttpApi.ask` plus chat UI: conversation list, expandable sources per answer, explicit "no source" state. Visual design follows in the UI track.
 - [x] **P4-06** (2026-11-20: **11/11 passed**, about 1 s per answer; report `docs/evaluation.md`; re-run with `eval/run_eval.py`) Evaluation set: 5 questions with known answers (English and Vietnamese), 3 unrelated questions, 1 prompt-injection PDF and a 2-user isolation test. Record the results in `docs/evaluation.md`.
-- [ ] **P4-07** 💰🧹 **Phase demo:** run the end-to-end MVP for all acceptance criteria in `PROJECT_REQUIREMENTS.md` §6, then destroy.
+- [x] **P4-07** 💰🧹 (2026-11-20: all 12 acceptance criteria met, see `docs/acceptance.md`; destroyed; teardown passed first run) **Phase demo:** run the end-to-end MVP for all acceptance criteria in `PROJECT_REQUIREMENTS.md` §6, then destroy.
 
 ---
 
@@ -139,6 +139,8 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 - [ ] **UI-03** Components: upload drop zone with **multi-file selection** (owner request, 2026-11-19) and per-file progress, document cards with status badges, chat bubbles, expandable citations, empty, loading and error states.
 - [ ] **UI-04** Accessibility and responsive check (keyboard, contrast, mobile width).
 - [ ] **UI-05** Fix misleading error: a missing API route currently shows "Cannot reach the server" (API Gateway's 404 has no CORS headers, so the browser reports a network error). This disappears once Phase 2 routes exist; still show a clearer message.
+
+- [ ] **UI-06** The no-evidence answer is a fixed English sentence; answer in the question's language (Vietnamese questions currently get English).
 
 ---
 
@@ -172,3 +174,4 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 | 2026-11-19 | HOW_IT_WORKS guide; **Knowledge Base spike P0-07**: S3 Vectors, per-document ingest (~5 s), per-user filter, Vietnamese Q&A, delete, all proven | None (spike resources deleted and verified) | Findings: metadata must be an S3 sidecar file; Bedrock's default prompt fails with Nova Lite, so a custom template is required. |
 | 2026-11-19 | **Phase 2** built (adapters, bucket, table, documents API) and demoed: 19/19 live checks (401, validation, S3 policy key/size enforcement, encrypted storage, INDEXING not READY, user isolation 404, fake-PDF cleanup, 409 on missing upload) and a real browser upload | None | Teardown check now filters deleted Cognito pools that the tagging index keeps listing for over a day. Use non-sensitive PDFs from Phase 3 on. |
 | 2026-11-19 | Progress deck; **Phase 3** built and demoed: Knowledge Base on S3 Vectors in CDK, automatic first sync, Bedrock adapter with sidecar metadata | None (destroyed, teardown passed) | Found in the demo: per-document ingestion needs `bedrock:StartIngestionJob` (the spike ran as admin, so it could not catch this); fixed and redeployed in 32 s. READY in about 4 s. Cold start about 6 s with the bundled boto3 (D-014), warm 78 ms. Teardown cleanup now retries because helper log groups can reappear. |
+| 2026-11-20 | **Phase 4 / MVP demo**: chat endpoint deployed; evaluation 11/11; owner browser test (an English question about a Vietnamese PDF was answered with its source; questions about another user's documents were declined); all 12 acceptance criteria met | None (destroyed, teardown passed) | Found in the demo: RetrieveAndGenerate with an inference profile needs `bedrock:GetInferenceProfile`; fixed in 32 s. Added README configuration, evaluation and cleanup sections. |

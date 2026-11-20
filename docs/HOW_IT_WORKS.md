@@ -39,11 +39,11 @@ Everything is **serverless**: there are no servers to manage, and you pay per re
 | Website on private S3 + CloudFront, security headers | ✅ | `infrastructure/stacks/web.py` |
 | Deploy / destroy / teardown-check scripts | ✅ | `scripts/` |
 | Upload, complete, list (delete: logic only) | ✅ upload/complete/list live-tested · 🧪 delete | `backend/src/clouddocs/services/documents.py` |
-| Chat logic and citation mapping | 🧪 | `backend/src/clouddocs/services/chat.py`, `rag.py` |
+| Chat logic and citation mapping | ✅ | `backend/src/clouddocs/services/chat.py`, `rag.py` |
 | Frontend upload, list, chat and real API client | 🧪 | `frontend/src/components/`, `frontend/src/api/http.ts` |
 | Document bucket, DynamoDB table, boto3 adapters | ✅ | `infrastructure/stacks/data.py`, `backend/src/clouddocs/adapters/` |
 | Bedrock Knowledge Base + S3 Vectors, per-document indexing | ✅ | `infrastructure/stacks/knowledge.py`, `backend/src/clouddocs/adapters/bedrock_kb.py` |
-| Grounded chat end to end | ⬜ Phase 4 | — |
+| Grounded chat end to end (evaluation 11/11) | ✅ | `backend/src/clouddocs/adapters/bedrock_kb.py`, `docs/evaluation.md` |
 | Visual design | ⬜ UI track | — |
 | Alarms, IAM review, Guardrails | ⬜ Phase 5 | — |
 | SQS/DLQ, CI/CD | ⬜ Phase 6 | — |
@@ -230,7 +230,7 @@ stateDiagram-v2
 
 Status changes are **conditional writes** (compare-and-set). Two requests racing can't both move a document, and a temporary Bedrock error leaves the status unchanged instead of marking it failed.
 
-### 4.5 Asking a question 🧪 (Phase 4)
+### 4.5 Asking a question ✅ (live-tested in Phase 4: evaluation 11/11)
 
 ```mermaid
 sequenceDiagram
@@ -295,7 +295,7 @@ flowchart LR
 | 1 Secure skeleton | Login, protected API, hosted website, deploy/destroy | ✅ Done 2026-11-18 |
 | 2 Secure upload | Document bucket, DynamoDB, adapters, real uploads | ✅ Done 2026-11-19 |
 | 3 RAG ingestion | Knowledge Base + S3 Vectors in CDK, per-document indexing | ✅ Done 2026-11-19 |
-| 4 Grounded chat | Filtered `RetrieveAndGenerate`, citations, evaluation set | ⬜ MVP complete here |
+| 4 Grounded chat | Filtered `RetrieveAndGenerate`, citations, evaluation set | ✅ Done 2026-11-20: **MVP complete** |
 | UI track | Visual design in mock mode | ⬜ Any time, free |
 | 5 Hardening | Delete flow live, IAM review, alarms, Guardrails/WAF decisions | ⬜ |
 | 6 Advanced | SQS + DLQ ingestion, GitHub Actions CI, portfolio material | ⬜ |
