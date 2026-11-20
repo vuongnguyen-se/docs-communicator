@@ -725,8 +725,38 @@ a {
   --amplify-fonts-default-static: var(--font);
 }
 
+/* Amplify resolves its component variables at :root (white), so overriding the general
+   --amplify-colors-* above never reaches the card: set the component variables and the card itself. */
+[data-amplify-authenticator] {
+  --amplify-components-authenticator-router-background-color: var(--surface);
+  --amplify-components-authenticator-router-border-color: transparent;
+  --amplify-components-fieldcontrol-background-color: var(--bg);
+  --amplify-components-passwordfield-button-color: var(--ink);
+  --amplify-components-button-color: var(--ink);
+  --amplify-components-button-border-color: var(--line-strong);
+  --amplify-components-button-hover-background-color: var(--bubble);
+  --amplify-components-button-hover-color: var(--ink);
+}
+
 [data-amplify-authenticator] [data-amplify-router] {
   border-radius: var(--r-lg);
+  background-color: var(--surface);
+  color: var(--ink);
+}
+
+[data-amplify-authenticator] .amplify-input,
+[data-amplify-authenticator] .amplify-field__show-password {
+  background-color: var(--bg);
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+[data-amplify-authenticator] .amplify-label {
+  color: var(--ink);
+}
+
+[data-amplify-authenticator] .amplify-input::placeholder {
+  color: var(--muted);
 }
 
 /* ---------- small screens (UI-04): one column, documents collapse above the chat */
