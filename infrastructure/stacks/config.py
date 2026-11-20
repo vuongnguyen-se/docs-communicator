@@ -20,6 +20,7 @@ class Config:
     throttle_rate_limit: float
     throttle_burst_limit: int
     generation_model: str  # inference profile id, e.g. apac.amazon.nova-lite-v1:0 (D-008)
+    alarm_email: str | None = None  # deploy-time only (-c alarmEmail=...), never committed
 
 
 def config_from_dict(raw: dict[str, Any]) -> Config:
@@ -30,9 +31,14 @@ def config_from_dict(raw: dict[str, Any]) -> Config:
         throttle_rate_limit=float(raw.get("throttleRateLimit", 5)),
         throttle_burst_limit=int(raw.get("throttleBurstLimit", 10)),
         generation_model=str(raw.get("generationModel", "apac.amazon.nova-lite-v1:0")),
+        alarm_email=str(raw["alarmEmail"]) if raw.get("alarmEmail") else None,
     )
 
 
 def load_config(scope: Construct) -> Config:
-    raw = Node.of(scope).try_get_context("clouddocs") or {}
+    node = Node.of(scope)
+    raw = dict(node.try_get_context("clouddocs") or {})
+    email = node.try_get_context("alarmEmail")
+    if email:
+        raw["alarmEmail"] = str(email)
     return config_from_dict(raw)

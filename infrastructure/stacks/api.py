@@ -73,6 +73,7 @@ class Api(Construct):
 
         health = self._function("Health", "clouddocs.handlers.health.handler")
         me = self._function("Me", "clouddocs.handlers.me.handler")
+        self.functions: dict[str, lambda_.IFunction] = {"Health": health, "Me": me}
 
         self.http_api.add_routes(
             path="/health",
@@ -97,6 +98,7 @@ class Api(Construct):
                 "DATA_SOURCE_ID": data_source_id,
             },
         )
+        self.functions["Documents"] = self.documents_fn
         self._grant_documents_access(self.documents_fn, documents_table, documents_bucket)
         self.documents_fn.add_to_role_policy(
             iam.PolicyStatement(
@@ -139,6 +141,7 @@ class Api(Construct):
             },
             timeout=Duration.seconds(29),  # API Gateway's integration limit is 30 s
         )
+        self.functions["Chat"] = self.chat_fn
         # Citations are checked against the caller's own documents: read-only, single items.
         documents_table.grant(self.chat_fn, "dynamodb:GetItem")
         self.chat_fn.add_to_role_policy(

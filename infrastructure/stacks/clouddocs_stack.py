@@ -12,6 +12,7 @@ from .auth import Auth
 from .config import Config
 from .data import Data
 from .knowledge import Knowledge
+from .monitoring import Monitoring
 from .web import Web
 
 
@@ -37,6 +38,14 @@ class CloudDocsStack(Stack):
             knowledge_base_id=knowledge.knowledge_base_id,
             knowledge_base_arn=knowledge.knowledge_base_arn,
             data_source_id=knowledge.data_source_id,
+        )
+        Monitoring(
+            self,
+            "Monitoring",
+            functions=api.functions,
+            http_api=api.http_api,
+            chat_function=api.chat_fn,
+            alarm_email=config.alarm_email,
         )
         web.deploy_site(
             {

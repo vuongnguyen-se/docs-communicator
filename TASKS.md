@@ -146,12 +146,12 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 
 ## Phase 5 — Hardening
 
-- [ ] **P5-01** Wire up and verify `DELETE /documents/{id}` (the service logic and tests already exist). It deletes from the Knowledge Base (`DeleteKnowledgeBaseDocuments`), deletes the S3 object, and only then deletes the metadata. Verify the document is no longer retrievable.
-- [ ] **P5-02** IAM review: list every Lambda role action and resource, and remove wildcards.
-- [ ] **P5-03** CloudWatch alarms for Lambda errors, API 5xx and throttles, with an SNS email topic.
-- [ ] **P5-04** Evaluate Bedrock Guardrails (cost and benefit) and record the decision.
-- [ ] **P5-05** Retry and error handling review: map boto3 throttling and validation errors to safe responses.
-- [ ] **P5-06** Evaluate AWS WAF on CloudFront and the API. Record the decision; it is optional because of its cost.
+- [~] **P5-01** (code + tests done 2026-11-20; live check in the final Phase 5 demo) Wire up and verify `DELETE /documents/{id}` (the service logic and tests already exist). It deletes from the Knowledge Base (`DeleteKnowledgeBaseDocuments`), deletes the S3 object, and only then deletes the metadata. Verify the document is no longer retrievable.
+- [x] **P5-02** (`infrastructure/tools/iam_report.py` -> `docs/iam-review.md`: 8 roles, 16 statements, 0 unreviewed wildcards) IAM review: list every Lambda role action and resource, and remove wildcards.
+- [~] **P5-03** (alarms per Lambda, API 5xx, 4xx spike, chat p90 latency -> SNS; email at deploy time only (`-AlarmEmail`); live check pending) CloudWatch alarms for Lambda errors, API 5xx and throttles, with an SNS email topic.
+- [x] **P5-04** (D-016: not enabled for the MVP, with triggers to enable it) Evaluate Bedrock Guardrails (cost and benefit) and record the decision.
+- [x] **P5-05** (AWS throttling/unavailable -> 503 SERVICE_BUSY with a safe message; other AWS errors generic 500) Retry and error handling review: map boto3 throttling and validation errors to safe responses.
+- [x] **P5-06** (D-017: not enabled for the MVP, with triggers to enable it) Evaluate AWS WAF on CloudFront and the API. Record the decision; it is optional because of its cost.
 
 ## Phase 6 — Advanced
 

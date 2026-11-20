@@ -137,3 +137,23 @@ The owner shared a reference AWS diagram: Amplify, REST API, Cognito, an extract
 - **Fonts:** Geist and Geist Mono, self-hosted (`public/fonts`, OFL) with Latin, Latin Extended and Vietnamese subsets, because the CSP allows fonts from 'self' only.
 - **Brand files:** `frontend/public/brand/`: transparent, cropped copies of the owner's logos, the mark (plus its dark-mode copy) and the app icon (used as favicon). Originals are kept by the owner.
 
+## D-016 — Bedrock Guardrails: not enabled for the MVP (P5-04)
+- **Status:** Accepted (2026-11-20). Revisit when the triggers below apply.
+- **What it would add:** content filters (hate, violence, prompt attack), denied topics, PII masking and a contextual-grounding check on every question and answer.
+- **Why not now:**
+  1. The main risk is already covered and measured. The custom prompt treats retrieved text as data, and evaluation case INJ-1 (a PDF ordering the model to answer "HACKED") passed. Answers without a verified source are replaced by the fixed decline, so ungrounded text never reaches the user.
+  2. Users only query their own documents. There is no shared or public content to moderate, and accounts are admin-created (D-004).
+  3. Guardrails are billed per text unit on both the input and the output, and add latency to every answer. For a portfolio demo that's cost without a matching risk.
+- **Triggers to enable it:** public sign-up, documents shared between users, PII-heavy documents, or an evaluation case that leaks or follows injected instructions. The first candidate is the **prompt-attack filter plus the contextual-grounding check**, attached through `generationConfiguration.guardrailConfiguration` in the Bedrock adapter.
+- **Check before enabling:** current per-text-unit price on the Bedrock pricing page for ap-southeast-1.
+
+## D-017 — AWS WAF: not enabled for the MVP (P5-06)
+- **Status:** Accepted (2026-11-20). Revisit when the triggers below apply.
+- **What it would add:** managed rule groups (common exploits, known bad inputs, IP reputation) and rate-based rules on CloudFront and API Gateway.
+- **Why not now:**
+  1. Every data route already requires a Cognito JWT (no public sign-up), so the attack surface is the login page and `GET /health`.
+  2. API Gateway throttles to 5 requests/s (burst 10), the Api4xxSpike alarm (P5-03) flags abuse, and the budget caps surprises. CloudFront includes AWS Shield Standard (network-level DDoS protection) at no cost.
+  3. WAF has a fixed monthly price per web ACL and per rule, plus a per-request fee. With environments that live for an hour, it adds cost and setup for little extra protection.
+- **Triggers to enable it:** a long-running or public deployment, public sign-up, or the Api4xxSpike alarm firing in practice. The first step is AWS managed rules (Common, KnownBadInputs, AmazonIpReputationList) plus a rate-based rule, on the CloudFront distribution.
+- **Check before enabling:** current WAF prices for the web ACL, rules and requests.
+

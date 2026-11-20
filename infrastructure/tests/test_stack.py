@@ -403,3 +403,33 @@ def test_chat_iam_is_kb_scoped_and_one_model(template: Template) -> None:
     assert "KnowledgeBase" in by_action["bedrock:RetrieveAndGenerate"]
     assert "foundation-model/amazon.nova-lite-v1:0" in by_action["bedrock:InvokeModel"]
     assert "inference-profile/apac.amazon.nova-lite-v1:0" in by_action["bedrock:InvokeModel"]
+
+
+# ---------------------------------------------------------------- Phase 5: alarms
+
+
+def test_alarms_cover_every_function_api_and_chat_latency(template: Template) -> None:
+    alarms = template.find_resources("AWS::CloudWatch::Alarm")
+    names = {k for k in alarms}
+    for expected in ("HealthErrors", "MeErrors", "DocumentsErrors", "ChatErrors", "Api5xx", "Api4xxSpike", "ChatSlow"):
+        assert any(expected in n for n in names), expected
+    for a in alarms.values():
+        props = a["Properties"]
+        assert props["TreatMissingData"] == "notBreaching"
+        assert len(props["AlarmActions"]) == 1  # the SNS topic
+
+
+def test_no_email_is_subscribed_unless_given_at_deploy(template: Template) -> None:
+    template.resource_count_is("AWS::SNS::Topic", 1)
+    template.resource_count_is("AWS::SNS::Subscription", 0)
+
+
+def test_alarm_email_comes_from_deploy_context_only() -> None:
+    app = cdk.App(context={"aws:cdk:bundling-stacks": [], "alarmEmail": "ops@example.com"})
+    from stacks.config import load_config
+
+    config = load_config(app)
+    stack = CloudDocsStack(app, "WithEmail", config=config, env=cdk.Environment(account="111111111111", region="ap-southeast-1"))
+    Template.from_stack(stack).has_resource_properties(
+        "AWS::SNS::Subscription", {"Protocol": "email", "Endpoint": "ops@example.com"}
+    )
