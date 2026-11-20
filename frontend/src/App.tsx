@@ -92,11 +92,11 @@ interface WorkspaceProps extends ThemeProps {
 }
 
 function Workspace({ api, userLabel, onSignOut, theme, toggleTheme }: WorkspaceProps) {
-  const [ready, setReady] = useState(false);
+  const [readyDocs, setReadyDocs] = useState<string[]>([]);
   const [docCount, setDocCount] = useState(0);
   const [docsOpen, setDocsOpen] = useState(false); // phones only: documents fold above the chat
   const onDocs = useCallback((docs: DocumentInfo[]) => {
-    setReady(docs.some((d) => d.status === "READY"));
+    setReadyDocs(docs.filter((d) => d.status === "READY").map((d) => d.filename));
     setDocCount(docs.length);
   }, []);
   const { logo, mark } = brandAssets(theme);
@@ -139,30 +139,30 @@ function Workspace({ api, userLabel, onSignOut, theme, toggleTheme }: WorkspaceP
         <aside id="sidebar" className={`sidebar${docsOpen ? "" : " sidebar--collapsed"}`} aria-label="Documents">
           <DocumentList api={api} onChange={onDocs} />
         </aside>
-        <Chat api={api} hasReadyDocuments={ready} mark={mark} />
+        <Chat api={api} hasReadyDocuments={readyDocs.length > 0} readyDocs={readyDocs} mark={mark} />
       </div>
     </div>
   );
 }
 
-/** Calls GET /me: proves browser -> Cognito token -> API Gateway authorizer -> Lambda works. */
+/** Calls GET /me once. Shows nothing when the API answers; a warning only when it can't be reached. */
 function ConnectionStatus({ api }: { api: ApiClient }) {
   const [state, setState] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => {
     let cancelled = false;
     api
       .whoAmI()
-      .then(() => !cancelled && setState({ ok: true, text: "Connected" }))
+      .then(() => !cancelled && setState({ ok: true, text: "" }))
       .catch((e: unknown) => !cancelled && setState({ ok: false, text: e instanceof ApiError ? e.message : "API not reachable" }));
     return () => {
       cancelled = true;
     };
   }, [api]);
-  if (!state) return null;
+  if (!state || state.ok) return null;
   return (
-    <span className={`connection${state.ok ? "" : " connection--down"}`} role={state.ok ? "status" : "alert"} title={state.text}>
+    <span className="connection connection--down" role="alert" title={state.text}>
       <span className="connection__dot" aria-hidden="true" />
-      <span className="connection__text">{state.ok ? "Connected" : state.text}</span>
+      <span className="connection__text">{state.text}</span>
     </span>
   );
 }

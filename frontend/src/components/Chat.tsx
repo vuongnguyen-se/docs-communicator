@@ -8,6 +8,8 @@ import { DocIcon } from "./icons";
 interface Props {
   api: ApiClient;
   hasReadyDocuments: boolean;
+  /** Names of the Ready documents, shown being "scanned" while a question is answered. */
+  readyDocs: string[];
   /** The client's mark for the current theme (public/brand). */
   mark: string;
 }
@@ -19,7 +21,7 @@ interface Turn {
 }
 
 /** Grounded Q&A: every source shown is one the backend verified as the user's own document. */
-export function Chat({ api, hasReadyDocuments, mark }: Props) {
+export function Chat({ api, hasReadyDocuments, readyDocs, mark }: Props) {
   const [question, setQuestion] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -72,12 +74,7 @@ export function Chat({ api, hasReadyDocuments, mark }: Props) {
                 {pending}
               </p>
             </li>
-            <li className="turn-a">
-              <img className="turn-a__avatar" src={mark} alt="" />
-              <p className="thinking" role="status">
-                Searching your documents…
-              </p>
-            </li>
+            <Searching mark={mark} docs={readyDocs} vi={isVietnamese(pending)} />
           </>
         )}
         <li ref={logEnd} aria-hidden="true" />
@@ -124,6 +121,42 @@ export function Chat({ api, hasReadyDocuments, mark }: Props) {
         )}
       </form>
     </section>
+  );
+}
+
+/**
+ * The "searching" moment: the mark pulses, the user's Ready documents are swept by a scan
+ * line and placeholder lines shimmer where the answer will appear. It only shows the documents
+ * that can be searched; it never claims a step (reading, writing) the client cannot observe.
+ * Under prefers-reduced-motion everything rests (styles.css) and the label stays.
+ */
+function Searching({ mark, docs, vi }: { mark: string; docs: string[]; vi: boolean }) {
+  const shown = docs.slice(0, 3);
+  return (
+    <li className="turn-a searching">
+      <img className="turn-a__avatar searching__mark" src={mark} alt="" />
+      <div className="turn-a__body searching__body">
+        <p className="searching__label" role="status">
+          {vi ? "Đang tìm trong tài liệu của bạn…" : "Searching your documents…"}
+        </p>
+        {shown.length > 0 && (
+          <div className="searching__docs" aria-hidden="true">
+            {shown.map((name, i) => (
+              <span key={name} className="searching__doc" style={{ ["--i" as string]: i }}>
+                <DocIcon size={14} />
+                <span className="searching__doc-name">{name}</span>
+              </span>
+            ))}
+            {docs.length > shown.length && <span className="searching__more">+{docs.length - shown.length}</span>}
+          </div>
+        )}
+        <div className="searching__lines" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+    </li>
   );
 }
 

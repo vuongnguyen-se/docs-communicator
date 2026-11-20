@@ -107,3 +107,13 @@ def test_vietnamese_detection_ignores_shared_accents():
     assert is_vietnamese("Ngân sách năm 2026")
     assert not is_vietnamese("Où est le café?")
     assert not is_vietnamese("When does the Nimbus team meet?")
+
+
+def test_excerpt_is_cut_at_a_word_with_an_ellipsis():
+    from clouddocs.services.chat import trim_excerpt
+
+    text = "Xin chào! Tôi là Đặng Thu Hương " + "giảng dạy " * 80 + "xây dựng giáo án, tổ chức"
+    out = trim_excerpt(text, limit=60)
+    assert out.endswith("…") and len(out) <= 61
+    assert not out[:-1].endswith(("giảng dạ", " "))  # never mid-word, never a trailing space
+    assert trim_excerpt("  short   text ") == "short text"

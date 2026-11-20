@@ -13,6 +13,15 @@ from .interfaces import DocumentRepository, KnowledgeBase
 # Kept for callers and tests; the actual reply follows the question's language (UI-06).
 NO_EVIDENCE_MESSAGE = NO_EVIDENCE["en"]
 MAX_EXCERPT_CHARS = 500
+
+
+def trim_excerpt(text: str, limit: int = MAX_EXCERPT_CHARS) -> str:
+    """Collapse whitespace and cut at a word boundary, marking the cut with an ellipsis."""
+    flat = " ".join(text.split())
+    if len(flat) <= limit:
+        return flat
+    cut = flat[:limit].rsplit(" ", 1)[0] if " " in flat[:limit] else flat[:limit]
+    return cut.rstrip(" ,;:.") + "…"
 MAX_CITATIONS = 5
 _S3_URI_RE = re.compile(r"^s3://[^/]+/(.+)$")
 
@@ -47,7 +56,7 @@ class ChatService:
             doc = self._repo.get(user_id, doc_id)  # defence in depth: must be owned and known
             if doc is None:
                 continue
-            excerpt = " ".join(ref.text.split())[:MAX_EXCERPT_CHARS]
+            excerpt = trim_excerpt(ref.text)
             if not excerpt or (doc_id, excerpt) in seen:
                 continue
             seen.add((doc_id, excerpt))

@@ -76,7 +76,8 @@ export class MockApi implements ApiClient {
   }
 
   async ask(question: string): Promise<ChatAnswer> {
-    await this.delay();
+    // Real answers take about a second; keep the "searching" moment visible in mock mode.
+    await new Promise((r) => setTimeout(r, this.latencyMs ? 1600 : 0));
     const problem = validateQuestion(question);
     if (problem) throw new ApiError("VALIDATION_ERROR", problem, 400);
     const ready = [...this.docs.values()].map((d) => this.view(d)).filter((d) => d.status === "READY");
