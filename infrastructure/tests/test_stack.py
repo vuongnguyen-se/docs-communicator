@@ -200,9 +200,9 @@ def test_documents_routes_exist_and_require_jwt(template: Template) -> None:
         "POST /documents/{id}/complete",
         "GET /documents",
         "GET /documents/{id}",
+        "DELETE /documents/{id}",
     ]:
         assert routes.get(key) == "JWT", key
-    assert "DELETE /documents/{id}" not in routes  # wired in Phase 5
 
 
 def test_documents_lambda_gets_table_and_bucket_from_env(template: Template) -> None:

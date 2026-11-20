@@ -79,8 +79,13 @@ describe("HttpApi", () => {
     await expect(api.uploadDocument(file)).rejects.toMatchObject({ code: "UPLOAD_FAILED" });
   });
 
-  it("does not offer delete until the backend wires it (P5-01)", () => {
-    expect(new HttpApi("https://x", token).canDelete).toBe(false);
+  it("deletes with DELETE /documents/{id} (P5-01)", async () => {
+    const f = fakeFetch([{ status: 202, body: { document: { ...doc, status: "DELETING" } } }]);
+    const api = new HttpApi("https://api.example.com", token, f.fn);
+    expect(api.canDelete).toBe(true);
+    await api.deleteDocument(doc.documentId);
+    expect(f.calls[0]!.init.method).toBe("DELETE");
+    expect(f.calls[0]!.url).toBe(`https://api.example.com/documents/${doc.documentId}`);
   });
 
   it("rejects invalid files before calling the API", async () => {

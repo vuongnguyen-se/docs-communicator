@@ -9,13 +9,35 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
-from ..errors import AppError, Unauthorized, ValidationFailed
+from ..errors import AppError, ServiceBusy, Unauthorized, ValidationFailed
 
 log = logging.getLogger("clouddocs.http")
 
 Event = dict[str, Any]
 Response = dict[str, Any]
 MAX_BODY_BYTES = 16 * 1024
+
+# AWS error codes that mean "busy or briefly unavailable": safe to tell the user to retry (P5-05).
+_RETRYABLE = {
+    "ThrottlingException",
+    "TooManyRequestsException",
+    "ProvisionedThroughputExceededException",
+    "RequestLimitExceeded",
+    "ServiceQuotaExceededException",
+    "ServiceUnavailableException",
+    "ServiceUnavailable",
+    "SlowDown",
+    "InternalServerException",
+}
+
+
+def aws_error_code(exc: BaseException) -> str | None:
+    """The AWS error code of a botocore ClientError (duck-typed: no botocore import here)."""
+    response = getattr(exc, "response", None)
+    if isinstance(response, dict):
+        code = (response.get("Error") or {}).get("Code")
+        return str(code) if code else None
+    return None
 
 
 def request_id(event: Event) -> str:
@@ -67,8 +89,18 @@ def wrap(fn: Callable[[Event, str], Response]) -> Callable[[Event, Any], Respons
         except AppError as err:
             log.info(json.dumps({"requestId": rid, "errorCode": err.code}))
             return error_response(err, rid)
-        except Exception:
-            log.exception(json.dumps({"requestId": rid, "errorCode": "INTERNAL_ERROR"}))
+        except Exception as exc:
+            code = aws_error_code(exc)
+            if code in _RETRYABLE:
+                log.warning(
+                    json.dumps({"requestId": rid, "errorCode": "SERVICE_BUSY", "aws": code})
+                )
+                busy = ServiceBusy("The service is busy right now. Wait a moment and try again.")
+                return error_response(busy, rid)
+            # Details (incl. AWS code) go to the logs only; the client gets a generic message.
+            log.exception(
+                json.dumps({"requestId": rid, "errorCode": "INTERNAL_ERROR", "aws": code})
+            )
             return error_response(AppError("Internal error"), rid)
 
     return handler

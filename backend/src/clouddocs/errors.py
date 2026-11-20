@@ -37,6 +37,11 @@ class LimitExceeded(AppError):
     code = "LIMIT_EXCEEDED"
 
 
+class ServiceBusy(AppError):
+    status = 503
+    code = "SERVICE_BUSY"
+
+
 class UpstreamUnavailable(AppError):
     status = 503
     code = "UPSTREAM_UNAVAILABLE"

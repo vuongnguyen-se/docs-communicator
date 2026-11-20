@@ -103,10 +103,14 @@ class DocumentService:
         )
 
     def list_documents(self, user_id: str) -> list[Document]:
-        return [self._refresh(d) for d in self._repo.list(validate_user_id(user_id))]
+        refreshed = (self._refresh(d) for d in self._repo.list(validate_user_id(user_id)))
+        return [d for d in refreshed if d is not None]  # None: a delete just finished
 
     def get_document(self, user_id: str, document_id: str) -> Document:
-        return self._refresh(self._require(user_id, document_id))
+        doc = self._refresh(self._require(user_id, document_id))
+        if doc is None:
+            raise NotFound("Document not found")
+        return doc
 
     def delete_document(self, user_id: str, document_id: str) -> Document | None:
         """Return None once fully removed; return the DELETING doc while the index still has it."""
@@ -117,15 +121,25 @@ class DocumentService:
             )
         try:
             self._kb.delete(doc.s3_key)
+        except Exception:
+            # e.g. a document that never reached the index: the status check below decides.
+            log.warning(
+                "kb delete request failed", extra={"documentId": document_id}, exc_info=True
+            )
+        try:
             gone = self._kb.index_state(doc.s3_key) == IndexState.NOT_FOUND
         except Exception as exc:
-            log.exception("kb delete failed", extra={"documentId": document_id})
+            log.exception("index status check failed", extra={"documentId": document_id})
             raise UpstreamUnavailable("Could not remove indexed content; retry later") from exc
         if not gone:
-            return doc  # stays DELETING until the index confirms removal
-        self._storage.delete(doc.s3_key)
-        self._repo.delete(user_id, document_id)
+            return doc  # stays DELETING; a later list/get finishes it once the index confirms
+        self._finish_delete(doc)
         return None
+
+    def _finish_delete(self, doc: Document) -> None:
+        """Only after the index no longer has it: remove the source file, then the record."""
+        self._storage.delete(doc.s3_key)
+        self._repo.delete(doc.owner_id, doc.document_id)
 
     # -- helpers ---------------------------------------------------------
     def _require(self, user_id: str, document_id: str) -> Document:
@@ -136,7 +150,17 @@ class DocumentService:
             raise NotFound("Document not found")
         return doc
 
-    def _refresh(self, doc: Document) -> Document:
+    def _refresh(self, doc: Document) -> Document | None:
+        if doc.status == DocumentStatus.DELETING:
+            try:
+                gone = self._kb.index_state(doc.s3_key) == IndexState.NOT_FOUND
+            except Exception:
+                log.exception("index status check failed", extra={"documentId": doc.document_id})
+                return doc
+            if gone:
+                self._finish_delete(doc)
+                return None
+            return doc
         if doc.status != DocumentStatus.INDEXING:
             return doc
         try:

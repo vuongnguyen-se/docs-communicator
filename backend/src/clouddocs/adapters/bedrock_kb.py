@@ -134,12 +134,15 @@ class BedrockKnowledgeBase:
         return _STATUS_MAP.get(details[0]["status"], IndexState.IN_PROGRESS)
 
     def delete(self, s3_key: str) -> None:
-        self._agent.delete_knowledge_base_documents(
-            knowledgeBaseId=self._kb,
-            dataSourceId=self._ds,
-            documentIdentifiers=[self._identifier(s3_key)],
-        )
-        self._s3.delete_object(Bucket=self._bucket, Key=s3_key + METADATA_SUFFIX)
+        try:
+            self._agent.delete_knowledge_base_documents(
+                knowledgeBaseId=self._kb,
+                dataSourceId=self._ds,
+                documentIdentifiers=[self._identifier(s3_key)],
+            )
+        finally:
+            # The sidecar goes either way: it only matters while the document is indexed.
+            self._s3.delete_object(Bucket=self._bucket, Key=s3_key + METADATA_SUFFIX)
 
     def query(self, question: str, owner_id: str) -> RagResult:
         if self._runtime is None or not self._model_arn:

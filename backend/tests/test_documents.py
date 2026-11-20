@@ -136,7 +136,7 @@ def test_delete_keeps_deleting_until_index_confirms(env: Env):
     assert env.docs.delete_document(USER_A, doc.document_id) is None
 
 
-def test_delete_upstream_error_is_503_and_keeps_data(env: Env):
+def test_delete_request_failure_keeps_data_and_stays_deleting(env: Env):
     doc = env.upload_pdf()
     env.docs.complete_upload(USER_A, doc.document_id)
 
@@ -144,6 +144,51 @@ def test_delete_upstream_error_is_503_and_keeps_data(env: Env):
         raise RuntimeError("down")
 
     env.kb.delete = boom  # type: ignore[method-assign]
+    pending = env.docs.delete_document(USER_A, doc.document_id)
+    assert pending is not None and pending.status == S.DELETING  # index still has it
+    assert doc.s3_key in env.storage.objects
+
+
+def test_delete_is_503_when_the_index_cannot_be_checked(env: Env):
+    doc = env.upload_pdf()
+    env.docs.complete_upload(USER_A, doc.document_id)
+
+    def boom(_key: str) -> IndexState:
+        raise RuntimeError("down")
+
+    env.kb.index_state = boom  # type: ignore[method-assign]
     with pytest.raises(UpstreamUnavailable):
         env.docs.delete_document(USER_A, doc.document_id)
     assert doc.s3_key in env.storage.objects
+
+
+def test_list_finishes_a_pending_delete_once_the_index_confirms(env: Env):
+    doc = env.upload_pdf()
+    env.docs.complete_upload(USER_A, doc.document_id)
+    env.kb.delete_completes = False
+    assert env.docs.delete_document(USER_A, doc.document_id).status == S.DELETING
+    env.kb.states.pop(doc.s3_key)  # the index finishes on its own, later
+    assert env.docs.list_documents(USER_A) == []
+    assert doc.s3_key not in env.storage.objects
+    assert env.repo.get(USER_A, doc.document_id) is None
+
+
+def test_get_of_a_finished_delete_is_404(env: Env):
+    doc = env.upload_pdf()
+    env.docs.complete_upload(USER_A, doc.document_id)
+    env.kb.delete_completes = False
+    env.docs.delete_document(USER_A, doc.document_id)
+    env.kb.states.pop(doc.s3_key)
+    with pytest.raises(NotFound):
+        env.docs.get_document(USER_A, doc.document_id)
+
+
+def test_delete_of_never_indexed_document_succeeds_even_if_kb_refuses(env: Env):
+    doc = env.upload_pdf()  # PENDING_UPLOAD: never sent to the index
+
+    def refuse(_key: str) -> None:
+        raise RuntimeError("ValidationException: unknown document")
+
+    env.kb.delete = refuse  # type: ignore[method-assign]
+    assert env.docs.delete_document(USER_A, doc.document_id) is None
+    assert env.repo.get(USER_A, doc.document_id) is None

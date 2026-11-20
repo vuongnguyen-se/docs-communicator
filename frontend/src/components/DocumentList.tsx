@@ -100,7 +100,8 @@ export function DocumentList({ api, onChange }: Props) {
     await Promise.all(Array.from({ length: Math.min(MAX_PARALLEL, work.length) }, runner));
   }
 
-  async function remove(id: string) {
+  async function remove(id: string, name: string) {
+    if (!window.confirm(`Delete "${name}"? It is removed from search and storage. This can't be undone.`)) return;
     setError(null);
     try {
       await api.deleteDocument(id);
@@ -212,7 +213,7 @@ export function DocumentList({ api, onChange }: Props) {
                       className="btn btn-ghost icon-btn"
                       aria-label={`Delete ${d.filename}`}
                       disabled={d.status === "DELETING"}
-                      onClick={() => void remove(d.documentId)}
+                      onClick={() => void remove(d.documentId, d.filename)}
                     >
                       ×
                     </button>

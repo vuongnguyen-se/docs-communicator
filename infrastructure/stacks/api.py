@@ -86,7 +86,7 @@ class Api(Construct):
             integration=integrations.HttpLambdaIntegration("MeIntegration", me),
         )
 
-        # Documents API (Phase 2). DELETE is wired in Phase 5 once the Knowledge Base exists.
+        # Documents API (Phase 2; DELETE added in Phase 5, P5-01).
         self.documents_fn = self._function(
             "Documents",
             "clouddocs.handlers.documents.handler",
@@ -118,6 +118,7 @@ class Api(Construct):
             (apigw.HttpMethod.POST, "/documents/{id}/complete"),
             (apigw.HttpMethod.GET, "/documents"),
             (apigw.HttpMethod.GET, "/documents/{id}"),
+            (apigw.HttpMethod.DELETE, "/documents/{id}"),
         ]:
             self.http_api.add_routes(path=path, methods=[method], integration=docs_integration)
 
@@ -223,7 +224,7 @@ class Api(Construct):
             architecture=ARCHITECTURE,
             handler=handler,
             code=self._code,
-            memory_size=256,
+            memory_size=512 if name in ("Documents", "Chat") else 256,
             timeout=timeout or Duration.seconds(10),
             log_group=log_group,
             logging_format=lambda_.LoggingFormat.JSON,

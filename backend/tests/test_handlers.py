@@ -97,3 +97,29 @@ def test_unexpected_error_is_500_without_details(env: Env):
     resp = chat.handler(api_event("POST /chat/query", body={"question": "hi"}), None)
     assert resp["statusCode"] == 500
     assert "secret" not in resp["body"]
+
+
+class _FakeClientError(Exception):
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.response = {"Error": {"Code": code, "Message": "internal detail"}}
+
+
+def test_aws_throttling_becomes_503_busy_without_details(env: Env, monkeypatch):
+    def throttled(*_a, **_k):
+        raise _FakeClientError("ThrottlingException")
+
+    monkeypatch.setattr(env.docs, "list_documents", throttled)
+    resp = documents.handler(api_event("GET /documents"), None)
+    assert resp["statusCode"] == 503
+    data = body(resp)
+    assert data["error"]["code"] == "SERVICE_BUSY" and "internal detail" not in resp["body"]
+
+
+def test_other_aws_errors_stay_generic_500(env: Env, monkeypatch):
+    def denied(*_a, **_k):
+        raise _FakeClientError("AccessDeniedException")
+
+    monkeypatch.setattr(env.docs, "list_documents", denied)
+    resp = documents.handler(api_event("GET /documents"), None)
+    assert resp["statusCode"] == 500 and "AccessDenied" not in resp["body"]

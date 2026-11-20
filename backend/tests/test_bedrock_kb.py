@@ -239,3 +239,13 @@ def test_container_selects_bedrock_adapter_when_configured(monkeypatch: pytest.M
     monkeypatch.setenv("KNOWLEDGE_BASE_ID", KB)
     monkeypatch.setenv("DATA_SOURCE_ID", DS)
     assert isinstance(container.build_services_from_env().documents._kb, BedrockKnowledgeBase)
+
+
+def test_delete_removes_sidecar_even_when_bedrock_refuses(env) -> None:  # type: ignore[no-untyped-def]
+    kb, agent, s3 = env
+    agent.add_client_error(
+        "delete_knowledge_base_documents", service_error_code="ValidationException"
+    )
+    s3.add_response("delete_object", {}, {"Bucket": BUCKET, "Key": KEY + ".metadata.json"})
+    with pytest.raises(Exception, match="ValidationException"):
+        kb.delete(KEY)

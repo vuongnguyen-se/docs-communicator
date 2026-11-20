@@ -32,7 +32,7 @@ interface UploadUrlResponse {
 
 /** Real API client: API Gateway HTTP API with a Cognito JWT on every call. */
 export class HttpApi implements ApiClient {
-  readonly canDelete = false; // DELETE /documents/{id} is wired in Phase 5 (P5-01)
+  readonly canDelete = true; // DELETE /documents/{id} (P5-01)
   private readonly baseUrl: string;
 
   constructor(
