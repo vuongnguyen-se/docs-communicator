@@ -127,7 +127,7 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 - [x] **P4-03** `services/rag.py` matches the response shape seen live in spike P0-07 (`citations[].retrievedReferences[].content.text` / `.location.s3Location.uri`); re-confirmed in the P4-07 demo.
 - [ ] **P4-04** (Optional) `conversationId` mapped to the Bedrock `sessionId`, plus a DynamoDB chat history table that stores question, answer and citation refs only.
 - [x] **P4-05** Frontend `HttpApi.ask` plus chat UI: conversation list, expandable sources per answer, explicit "no source" state. Visual design follows in the UI track.
-- [~] **P4-06** (kit ready: `eval/make_pdfs.py` makes 3 fictional PDFs; `eval/run_eval.py` runs 11 cases and writes `docs/evaluation.md`; runs in P4-07) Evaluation set: 5 questions with known answers (English and Vietnamese), 3 unrelated questions, 1 prompt-injection PDF and a 2-user isolation test. Record the results in `docs/evaluation.md`.
+- [x] **P4-06** (2026-11-20: **11/11 passed**, about 1 s per answer; report `docs/evaluation.md`; re-run with `eval/run_eval.py`) Evaluation set: 5 questions with known answers (English and Vietnamese), 3 unrelated questions, 1 prompt-injection PDF and a 2-user isolation test. Record the results in `docs/evaluation.md`.
 - [ ] **P4-07** 💰🧹 **Phase demo:** run the end-to-end MVP for all acceptance criteria in `PROJECT_REQUIREMENTS.md` §6, then destroy.
 
 ---

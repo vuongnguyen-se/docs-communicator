@@ -76,6 +76,7 @@ Short records of decisions that shape the project. Add a new entry instead of si
   - `apac.amazon.nova-lite-v1:0` ✅.
   - `global.anthropic.claude-haiku-5-5` ❌ `AccessDeniedException: ... not available for this account`. Needs the Anthropic first-time-use form in the Bedrock console. This does not block the MVP, because Nova Lite is the default.
 - **Spike P0-07 (2026-11-19):** Bedrock's *default* RAG prompt makes Nova Lite emit junk (`Action: GlobalDataSource.search(...)`) and fail on Vietnamese questions. A **custom prompt template** fixed both: clean answers, Vietnamese answers in Vietnamese, refusals when not found. A custom template is therefore **required**. Cross-lingual retrieval (Vietnamese question → English document) works.
+- **Phase 4 demo (2026-11-20):** RetrieveAndGenerate with an inference profile also needs `bedrock:GetInferenceProfile` on the profile ARN (AccessDenied without it; not in the docs consulted). With it: 11/11 evaluation cases pass with Nova Lite, including Vietnamese and prompt injection, so Claude is **not** needed as a fallback for now.
 - **Plan:** Start with Nova Lite (`apac.`). Switch to Claude Haiku through one config value if Vietnamese answer quality fails the P4-06 evaluation.
 - `RetrieveAndGenerate` must receive the **inference profile ARN**, not a bare model ID.
 - Model IDs and ARNs live in configuration (CDK context or env vars), never hard-coded in Lambda code.

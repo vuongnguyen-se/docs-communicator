@@ -397,7 +397,9 @@ def test_chat_iam_is_kb_scoped_and_one_model(template: Template) -> None:
         "bedrock:Retrieve",
         "bedrock:RetrieveAndGenerate",
         "bedrock:InvokeModel",
+        "bedrock:GetInferenceProfile",
     }
+    assert "inference-profile/apac.amazon.nova-lite-v1:0" in by_action["bedrock:GetInferenceProfile"]
     assert "KnowledgeBase" in by_action["bedrock:RetrieveAndGenerate"]
     assert "foundation-model/amazon.nova-lite-v1:0" in by_action["bedrock:InvokeModel"]
     assert "inference-profile/apac.amazon.nova-lite-v1:0" in by_action["bedrock:InvokeModel"]

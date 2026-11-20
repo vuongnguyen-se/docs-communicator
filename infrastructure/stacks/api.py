@@ -154,6 +154,14 @@ class Api(Construct):
                 resources=[profile_arn, f"arn:{Aws.PARTITION}:bedrock:*::foundation-model/{model_id}"],
             )
         )
+        self.chat_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                # RetrieveAndGenerate reads the profile before invoking it (found in the
+                # Phase 4 demo: AccessDenied "Not authorized to call GetInferenceProfile").
+                actions=["bedrock:GetInferenceProfile"],
+                resources=[profile_arn],
+            )
+        )
         self.http_api.add_routes(
             path="/chat/query",
             methods=[apigw.HttpMethod.POST],
