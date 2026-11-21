@@ -157,3 +157,16 @@ The owner shared a reference AWS diagram: Amplify, REST API, Cognito, an extract
 - **Triggers to enable it:** a long-running or public deployment, public sign-up, or the Api4xxSpike alarm firing in practice. The first step is AWS managed rules (Common, KnownBadInputs, AmazonIpReputationList) plus a rate-based rule, on the CloudFront distribution.
 - **Check before enabling:** current WAF prices for the web ACL, rules and requests.
 
+## D-018 — A decline is a `NO_ANSWER` marker, not the model's own wording (P5-08)
+- **Status:** Accepted (2026-11-21)
+- **Problem (seen live):**
+  - In the P5-07 demo, a question about a name that no document contained got another person's profile under the asked name, with a citation.
+  - After a prompt rule fixed that, the model declined correctly, but Bedrock still attached citations to the decline in 4 of 14 evaluation cases. The app treats "has citations" as "real answer", so it showed the model's own decline text with a source chip. In one Vietnamese case that text was in English.
+- **Decision:**
+  - The prompt asks the model to answer about a named person, organization or thing only if the search results mention that exact name.
+  - When it cannot answer, the model replies with exactly `NO_ANSWER`.
+  - The Bedrock adapter (`adapters/bedrock_kb.py`) turns any answer containing the marker into "no answer, no references".
+  - The chat service then shows its fixed decline in the question's language (UI-06).
+- **Why:** detection does not depend on the model's wording or language, and a decline can never carry sources.
+- **Evidence:** evaluation 14/14 (`docs/evaluation.md`), including 3 new `ABS-*` cases and UN-1, which had regressed. The demo question was declined in English and Vietnamese.
+
