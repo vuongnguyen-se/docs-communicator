@@ -181,5 +181,24 @@ The owner shared a reference AWS diagram: Amplify, REST API, Cognito, an extract
   - **Queue settings:** batch size 5 and maximum concurrency 2 (gentle on Knowledge Base ingest calls); visibility timeout 180 s (6 × the 30 s worker timeout); after 3 receives the message moves to `IngestDLQ` (kept 14 days). Both queues are encrypted and TLS-only, and are destroyed with the stack (D-002).
   - `IngestDLQNotEmpty` alarms on any message in the DLQ and emails the owner through the existing SNS topic.
   - The browser no longer calls `/complete`. The route stays as an optional, idempotent "check now" call (owner's choice of the recommended default).
-- **Why not Step Functions:** one verify-then-ingest step needs no workflow engine; status polling on read already tracks indexing (P6-02 records the full evaluation).
+- **Why not Step Functions:** one verify-then-ingest step needs no workflow engine; status polling on read already tracks indexing (full evaluation in D-020).
 - **Evidence (2026-11-21 live demo):** 3 PDFs indexed through the queue in 7.9 s with no `/complete` call; a text file named `fake.pdf` ended `FAILED` / `INVALID_FILE` in 13 s and was deleted from S3; a broken message was retried 3 times (3 minutes apart), reached the DLQ, and the alarm email arrived; evaluation 14/14.
+
+## D-020 — Step Functions: not used for the MVP (P6-02)
+- **Status:** Accepted (2026-11-21). Revisit when the triggers below apply.
+- **Where it could help:**
+  1. **Ingestion:** verify → ingest → wait and poll the Knowledge Base → set `READY` or `FAILED`, with retries and a catch-all failure state.
+  2. **Delete:** remove from the Knowledge Base → wait until the index confirms → delete the S3 object → delete the record.
+- **Why not now:**
+  1. The worker's job is one step. Verify and ingest run in under a second (live demo: 0.6–0.7 s warm), and SQS already gives retries, a dead-letter queue and an alarm (D-019, verified live). A state machine would wrap a single step.
+  2. The waits are short and already handled. Indexing took 4–8 s in every demo. `GET /documents` asks the Knowledge Base for any document in `INDEXING` or `DELETING` and finishes it with a compare-and-set write. Nothing needs to finish while nobody is looking: chat searches the index directly and never reads the status, and a deleted document leaves the index as soon as the delete is requested (P5-07: no answers 4 s after the `202`).
+  3. Every status change is already idempotent (compare-and-set), so repeated or overlapping calls are safe without a workflow engine.
+  4. It would add a state machine, an IAM role, CDK code and tests, and a second place to look when something fails. Standard workflows are billed per state transition (with a monthly free allowance), so the cost would be small. The extra moving parts are the real price.
+- **Known limit we accept:** a document's stored status only moves from `INDEXING` or `DELETING` when someone lists or opens it. Every screen and API response refreshes it first, so a user never sees a stale status.
+- **Triggers to adopt it:**
+  - ingestion gains real extra steps, such as OCR (Textract), virus scanning, custom chunking or summaries;
+  - a step can run longer than Lambda's 15-minute limit;
+  - something must happen when a document becomes `READY` without anyone reading the list (an email or webhook, for example);
+  - a human approval step.
+- **First step if triggered:** a Standard workflow started by the existing worker in place of the direct ingest call. It would verify, ingest, then loop on a `Wait` state and the Knowledge Base status, ending in `READY`, or in `FAILED` through a `Catch`. The SQS queue and DLQ stay in front of it.
+- **Check before adopting:** the current Step Functions price per state transition in ap-southeast-1, and whether the AWS SDK integration supports the Bedrock Agent ingestion calls (otherwise each call needs a small Lambda step).
