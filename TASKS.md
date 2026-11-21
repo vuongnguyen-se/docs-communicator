@@ -13,7 +13,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 | 2 | Secure PDF upload with metadata and status | ✅ Done (2026-11-19) |
 | 3 | RAG ingestion into Bedrock Knowledge Base | ✅ Done (2026-11-19) |
 | 4 | Grounded chat with citations | ✅ Done (2026-11-20): **MVP complete** |
-| 5 | Hardening: delete flow, IAM review, alarms, Guardrails | In progress: P5-02, 04, 05, 06 done; P5-01 and P5-03 wait for the live Phase 5 demo |
+| 5 | Hardening: delete flow, IAM review, alarms, Guardrails | In progress: P5-02, 04, 05, 06 done; P5-01 and P5-03 wait for the live Phase 5 demo (P5-07) |
 | 6 | Advanced: SQS/DLQ, CI/CD, portfolio polish | Not started |
 
 **Every phase ends the same way:** deploy → run the phase demo → `cdk destroy` → run the teardown check → confirm the bill in Cost Explorer next day.
@@ -152,6 +152,19 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 - [x] **P5-04** (D-016: not enabled for the MVP, with triggers to enable it) Evaluate Bedrock Guardrails (cost and benefit) and record the decision.
 - [x] **P5-05** (AWS throttling/unavailable -> 503 SERVICE_BUSY with a safe message; other AWS errors generic 500) Retry and error handling review: map boto3 throttling and validation errors to safe responses.
 - [x] **P5-06** (D-017: not enabled for the MVP, with triggers to enable it) Evaluate AWS WAF on CloudFront and the API. Record the decision; it is optional because of its cost.
+- [ ] **P5-07** 💰🧹 **Phase demo:** live checks for P5-01 and P5-03, plus the items left for "the next deploy". Use 1 small, non-sensitive PDF and 2 users (A and B). Done when every step passes, the results are recorded in the session log, and P5-01, P5-03 and Phase 5 are ticked.
+  1. **Deploy** with `scripts\deploy.ps1 -AlarmEmail <your email>`. This is also the first real run of `scripts\use-infra-venv.ps1`. Open the "AWS Notification – Subscription Confirmation" email and click **Confirm subscription**.
+  2. **Sign-in screen (UI-02):** the Cognito sign-in card shows the Clouddocs styling and stays readable in both light and dark mode.
+  3. **Alarms exist (P5-03):** CloudWatch → Alarms lists 7 alarms whose names contain `HealthErrors`, `MeErrors`, `DocumentsErrors`, `ChatErrors`, `Api5xx`, `Api4xxSpike` and `ChatSlow` (CDK adds the stack prefix). Each is in `OK` or "Insufficient data", never `ALARM`.
+  4. **Alarm email arrives (P5-03):** send 60 requests to `GET /me` without a token, about 4 per second (each one gets a 401). Within about 10 minutes, `Api4xxSpike` goes to `ALARM` and the alarm email arrives. It then returns to `OK` on its own.
+  5. **Delete removes everything (P5-01):** as user A, upload the PDF, wait for **Ready**, then ask a question it answers *with a source*. Delete the document from the UI and accept the confirmation. Then check:
+     - The document disappears from the list. A `202` (still `DELETING`) is fine if it is gone after the next refresh.
+     - The same question now gets the "could not find relevant information" answer, with no sources.
+     - S3: neither `uploads/<A's sub>/<documentId>.pdf` nor its `.pdf.metadata.json` sidecar exists.
+     - DynamoDB: the item `USER#<A's sub>` / `DOC#<documentId>` is gone.
+     - Knowledge Base: `aws bedrock-agent get-knowledge-base-documents` for that document returns nothing, or a not-found status.
+  6. **Delete is owner-only:** user A uploads a PDF. User B sends `DELETE /documents/<A's documentId>` with B's token. The answer is `404`, and A's document is still listed and still answerable.
+  7. **Destroy and check:** run `scripts\destroy.ps1`. The teardown check passes, with no stacks, tagged resources, log groups or SNS topic left. Confirm the bill in Cost Explorer the next day.
 
 ## Phase 6 — Advanced
 
