@@ -14,6 +14,7 @@ from aws_cdk import aws_cloudwatch_actions as cw_actions
 from aws_cdk import aws_lambda as lambda_
 from aws_cdk import aws_sns as sns
 from aws_cdk import aws_sns_subscriptions as subs
+from aws_cdk import aws_sqs as sqs
 from constructs import Construct
 
 FIVE_MIN = Duration.minutes(5)
@@ -28,6 +29,7 @@ class Monitoring(Construct):
         functions: dict[str, lambda_.IFunction],
         http_api: apigw.HttpApi,
         chat_function: lambda_.IFunction,
+        dead_letter_queue: sqs.IQueue,
         alarm_email: str | None,
     ) -> None:
         super().__init__(scope, construct_id)
@@ -77,4 +79,12 @@ class Monitoring(Construct):
             chat_function.metric_duration(period=FIVE_MIN, statistic="p90"),
             20_000,
             "Chat answers are near the 29 s timeout (p90 >= 20 s).",
+        )
+        alarm(
+            "IngestDLQNotEmpty",
+            dead_letter_queue.metric_approximate_number_of_messages_visible(
+                period=FIVE_MIN, statistic="Maximum"
+            ),
+            1,
+            "An upload could not be processed after 3 tries (ingest dead-letter queue).",
         )

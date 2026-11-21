@@ -75,7 +75,7 @@ def test_stage_is_throttled(template: Template) -> None:
 
 
 def test_app_lambdas_use_python312_arm64(template: Template) -> None:
-    for name in ("HealthFunction", "MeFunction", "DocumentsFunction", "ChatFunction"):
+    for name in ("HealthFunction", "MeFunction", "DocumentsFunction", "ChatFunction", "WorkerFunction"):
         fns = {k: v for k, v in template.find_resources("AWS::Lambda::Function").items() if name in k}
         assert len(fns) == 1, name
         props = next(iter(fns.values()))["Properties"]
@@ -411,7 +411,7 @@ def test_chat_iam_is_kb_scoped_and_one_model(template: Template) -> None:
 def test_alarms_cover_every_function_api_and_chat_latency(template: Template) -> None:
     alarms = template.find_resources("AWS::CloudWatch::Alarm")
     names = {k for k in alarms}
-    for expected in ("HealthErrors", "MeErrors", "DocumentsErrors", "ChatErrors", "Api5xx", "Api4xxSpike", "ChatSlow"):
+    for expected in ("HealthErrors", "MeErrors", "DocumentsErrors", "ChatErrors", "WorkerErrors", "Api5xx", "Api4xxSpike", "ChatSlow", "IngestDLQNotEmpty"):
         assert any(expected in n for n in names), expected
     for a in alarms.values():
         props = a["Properties"]
@@ -433,3 +433,94 @@ def test_alarm_email_comes_from_deploy_context_only() -> None:
     Template.from_stack(stack).has_resource_properties(
         "AWS::SNS::Subscription", {"Protocol": "email", "Endpoint": "ops@example.com"}
     )
+
+
+# ---------------------------------------------------------------- Event-driven ingestion
+
+
+def _queues(template: Template) -> tuple[dict, dict]:
+    queues = template.find_resources("AWS::SQS::Queue")
+    main = [v for k, v in queues.items() if "IngestQueue" in k]
+    dlq = [v for k, v in queues.items() if "IngestDLQ" in k]
+    assert len(main) == 1 and len(dlq) == 1
+    return main[0], dlq[0]
+
+
+def test_ingest_queues_are_encrypted_tls_only_and_destroyable(template: Template) -> None:
+    main, dlq = _queues(template)
+    for q in (main, dlq):
+        assert q["Properties"]["SqsManagedSseEnabled"] is True
+        assert q["DeletionPolicy"] == "Delete"
+    tls = [
+        s
+        for p in template.find_resources("AWS::SQS::QueuePolicy").values()
+        for s in p["Properties"]["PolicyDocument"]["Statement"]
+        if s["Effect"] == "Deny" and s.get("Condition") == {"Bool": {"aws:SecureTransport": "false"}}
+    ]
+    assert len(tls) >= 2  # one per queue
+
+
+def test_failed_messages_go_to_the_dlq_after_three_tries(template: Template) -> None:
+    main, _ = _queues(template)
+    props = main["Properties"]
+    assert props["RedrivePolicy"]["maxReceiveCount"] == 3
+    assert "IngestDLQ" in json.dumps(props["RedrivePolicy"]["deadLetterTargetArn"])
+    assert props["VisibilityTimeout"] == 180  # 6 x the worker's 30 s timeout
+    assert _fn(template, "WorkerFunction")["Properties"]["Timeout"] == 30
+
+
+def test_s3_reports_only_uploaded_pdfs_to_the_queue(template: Template) -> None:
+    (notif,) = template.find_resources("Custom::S3BucketNotifications").values()
+    configs = notif["Properties"]["NotificationConfiguration"]["QueueConfigurations"]
+    assert len(configs) == 1
+    cfg = configs[0]
+    assert cfg["Events"] == ["s3:ObjectCreated:*"]
+    rules = {r["Name"]: r["Value"] for r in cfg["Filter"]["Key"]["FilterRules"]}
+    assert rules == {"prefix": "uploads/", "suffix": ".pdf"}  # sidecars (.pdf.metadata.json) excluded
+    assert "IngestQueue" in json.dumps(cfg["QueueArn"])
+
+
+def test_worker_reads_the_queue_in_small_batches_with_partial_retries(template: Template) -> None:
+    (mapping,) = template.find_resources("AWS::Lambda::EventSourceMapping").values()
+    props = mapping["Properties"]
+    assert props["BatchSize"] == 5
+    assert props["FunctionResponseTypes"] == ["ReportBatchItemFailures"]
+    assert props["ScalingConfig"] == {"MaximumConcurrency": 2}
+    assert "IngestQueue" in json.dumps(props["EventSourceArn"])
+    assert "WorkerFunction" in json.dumps(props["FunctionName"])
+
+
+def test_worker_iam_is_a_strict_subset_for_verify_and_ingest(template: Template) -> None:
+    fn = _fn(template, "WorkerFunction")
+    statements = _role_statements(template, fn["Properties"]["Role"]["Fn::GetAtt"][0])
+    by_action: dict[str, str] = {}
+    for st in statements:
+        acts = st["Action"] if isinstance(st["Action"], list) else [st["Action"]]
+        assert st["Resource"] != "*" and not any(a.endswith(":*") for a in acts), st
+        for a in acts:
+            by_action[a] = json.dumps(st["Resource"])
+    assert set(by_action) == {
+        "dynamodb:GetItem",
+        "dynamodb:UpdateItem",
+        "s3:GetObject",
+        "s3:DeleteObject",
+        "s3:PutObject",
+        "s3:ListBucket",
+        "bedrock:StartIngestionJob",
+        "bedrock:IngestKnowledgeBaseDocuments",
+        # Added by the SQS event source, on the ingest queue only:
+        "sqs:ReceiveMessage",
+        "sqs:ChangeMessageVisibility",
+        "sqs:GetQueueUrl",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
+    }
+    assert '/uploads/*.pdf"' in by_action["s3:GetObject"]
+    assert "/uploads/*.pdf.metadata.json" in by_action["s3:PutObject"]
+    assert "KnowledgeBase" in by_action["bedrock:IngestKnowledgeBaseDocuments"]
+    assert "IngestQueue" in by_action["sqs:ReceiveMessage"]
+
+
+def test_worker_gets_resource_names_from_env(template: Template) -> None:
+    env = _fn(template, "WorkerFunction")["Properties"]["Environment"]["Variables"]
+    assert set(env) == {"DOCUMENTS_TABLE", "DOCUMENTS_BUCKET", "KNOWLEDGE_BASE_ID", "DATA_SOURCE_ID"}

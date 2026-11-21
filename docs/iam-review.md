@@ -6,7 +6,7 @@ Deploy-time only roles (CDK helpers) exist while CloudFormation runs; the app's 
 Inherited broad grant: every Lambda role carries AWS's `AWSLambdaBasicExecutionRole` (logs:CreateLogGroup/CreateLogStream/PutLogEvents on `*`).
 It only writes CloudWatch logs and is the AWS-managed default; each function's log group is created by the stack with 1-week retention.
 
-Roles: **8** · statements: **16** · unreviewed wildcards: **0**
+Roles: **10** · statements: **23** · unreviewed wildcards: **0**
 
 | Role | Trusted by | Managed policies | Effect | Actions | Resource (and condition) | Wildcard note |
 |---|---|---|---|---|---|---|
@@ -19,6 +19,13 @@ Roles: **8** · statements: **16** · unreviewed wildcards: **0**
 | ApiDocumentsFunctionServiceRole | {"Service": "lambda.amazonaws.com"} | AWSLambdaBasicExecutionRole | Allow | s3:DeleteObject, s3:GetObject, s3:PutObject | ${DataDocumentsBucket4CB7B04F.Arn}/uploads/* |  |
 | ApiDocumentsFunctionServiceRole | {"Service": "lambda.amazonaws.com"} | AWSLambdaBasicExecutionRole | Allow | s3:ListBucket | ${DataDocumentsBucket4CB7B04F.Arn} when {"StringLike": {"s3:prefix": ["uploads/*"]}} |  |
 | ApiDocumentsFunctionServiceRole | {"Service": "lambda.amazonaws.com"} | AWSLambdaBasicExecutionRole | Allow | bedrock:DeleteKnowledgeBaseDocuments, bedrock:GetKnowledgeBaseDocuments, bedrock:IngestKnowledgeBaseDocuments, bedrock:StartIngestionJob | ${KnowledgeKnowledgeBase7F97F906.KnowledgeBaseArn} |  |
+| ApiWorkerFunctionServiceRole | {"Service": "lambda.amazonaws.com"} | AWSLambdaBasicExecutionRole | Allow | dynamodb:GetItem, dynamodb:UpdateItem | ${DataDocumentsTable0C9671B7.Arn} |  |
+| ApiWorkerFunctionServiceRole | {"Service": "lambda.amazonaws.com"} | AWSLambdaBasicExecutionRole | Allow | s3:DeleteObject, s3:GetObject | ${DataDocumentsBucket4CB7B04F.Arn}/uploads/*.pdf |  |
+| ApiWorkerFunctionServiceRole | {"Service": "lambda.amazonaws.com"} | AWSLambdaBasicExecutionRole | Allow | s3:PutObject | ${DataDocumentsBucket4CB7B04F.Arn}/uploads/*.pdf.metadata.json |  |
+| ApiWorkerFunctionServiceRole | {"Service": "lambda.amazonaws.com"} | AWSLambdaBasicExecutionRole | Allow | s3:ListBucket | ${DataDocumentsBucket4CB7B04F.Arn} when {"StringLike": {"s3:prefix": ["uploads/*"]}} |  |
+| ApiWorkerFunctionServiceRole | {"Service": "lambda.amazonaws.com"} | AWSLambdaBasicExecutionRole | Allow | bedrock:IngestKnowledgeBaseDocuments, bedrock:StartIngestionJob | ${KnowledgeKnowledgeBase7F97F906.KnowledgeBaseArn} |  |
+| ApiWorkerFunctionServiceRole | {"Service": "lambda.amazonaws.com"} | AWSLambdaBasicExecutionRole | Allow | sqs:ChangeMessageVisibility, sqs:DeleteMessage, sqs:GetQueueAttributes, sqs:GetQueueUrl, sqs:ReceiveMessage | ${IngestionIngestQueue6FC9FC20.Arn} |  |
+| BucketNotificationsHandler050a0587b7544547bf325f094a3db834Role | {"Service": "lambda.amazonaws.com"} | AWSLambdaBasicExecutionRole | Allow | s3:PutBucketNotification | ${DataDocumentsBucket4CB7B04F.Arn} |  |
 | CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C512MiBServiceRole | {"Service": "lambda.amazonaws.com"} | AWSLambdaBasicExecutionRole | Allow | s3:GetBucket*, s3:GetObject*, s3:List* | arn:${AWS::Partition}:s3:::{"Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-southeast-1"}, arn:${AWS::Partition}:s3:::{"Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-southeast-1"}/* |  |
 | CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C512MiBServiceRole | {"Service": "lambda.amazonaws.com"} | AWSLambdaBasicExecutionRole | Allow | s3:Abort*, s3:DeleteObject*, s3:GetBucket*, s3:GetObject*, s3:List*, s3:PutObject, s3:PutObjectLegalHold, s3:PutObjectRetention, s3:PutObjectTagging, s3:PutObjectVersionTagging | ${WebSiteBucket1E6F6F45.Arn}, ${WebSiteBucket1E6F6F45.Arn}/* |  |
 | CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C512MiBServiceRole | {"Service": "lambda.amazonaws.com"} | AWSLambdaBasicExecutionRole | Allow | cloudfront:CreateInvalidation, cloudfront:GetInvalidation | * | accepted: CDK's site upload helper; it can only clear CDN caches. Runs at deploy time only. |
