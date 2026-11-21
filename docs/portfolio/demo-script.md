@@ -1,5 +1,7 @@
 # Demo session: screenshots and video
 
+**Done on 2026-11-21:** 4 screenshots in `screenshots/` (the email in the top bar is pixelated) and a screen recording. The recording is kept outside the repository because of its size (about 50 MB); share it as an unlisted video link. It was recorded just before the layout fix that keeps the top bar and panels in place while the conversation scrolls.
+
 One deploy session, about an hour and a few cents (see `cost-notes.md`). Use only the fictional PDFs from `eval/make_pdfs.py` (`nimbus-handbook.pdf`, `sen-vang-so-tay.pdf`) so that nothing personal appears on screen.
 
 ## Before recording
