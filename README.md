@@ -68,6 +68,8 @@ cd frontend && npm ci && npm test && npm run dev   # dev server uses the in-memo
 cd infrastructure && python -m venv .venv && .venv/Scripts/python -m pip install -r requirements-dev.txt && .venv/Scripts/python -m pytest
 ```
 
+GitHub Actions runs the same checks, plus `ruff`, `mypy`, `eslint`, the frontend build and `cdk synth`, on every pull request and push to `main` (`.github/workflows/ci.yml`). It uses no AWS credentials.
+
 ## Deploy and tear down (PowerShell, after `docs/aws-account-setup.md`)
 
 ```powershell
