@@ -8,7 +8,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 | Phase | Goal | Status |
 |---|---|---|
-| 0 | Account, tooling and Region checks; prove the AI path in a throwaway spike | ✅ Done (only the optional Claude form, P0-05, is left) |
+| 0 | Account, tooling and Region checks; prove the AI path in a throwaway spike | ✅ Done (P0-05's optional Claude form skipped by the owner) |
 | 1 | Secure skeleton: CDK, Cognito login, HTTP API, health Lambda, hosted frontend | ✅ Done (2026-11-18) |
 | 2 | Secure PDF upload with metadata and status | ✅ Done (2026-11-19) |
 | 3 | RAG ingestion into Bedrock Knowledge Base | ✅ Done (2026-11-19) |
@@ -33,7 +33,7 @@ Account and safety (one-time, kept between sessions). Step-by-step guide: `docs/
   - Done when: the tag shows as active. It can take up to 24h to appear after the first tagged resource exists.
 
 Region and model checks (read-only, no cost):
-- [~] **P0-05** (2026-11-18: Cohere embed and Nova Lite test calls OK; Claude Haiku needs the Anthropic use-case form, see D-008) List the Bedrock models and inference profiles in `ap-southeast-1`. Choose a generation model and an embedding model, then request model access or submit the Anthropic use-case form (D-008).
+- [x] **P0-05** (2026-11-21: the Anthropic form is skipped, not needed for now (owner); Nova Lite stays the generation model. 2026-11-18: Cohere embed and Nova Lite test calls OK; Claude Haiku needs the Anthropic use-case form, see D-008) List the Bedrock models and inference profiles in `ap-southeast-1`. Choose a generation model and an embedding model, then request model access or submit the Anthropic use-case form (D-008).
   - Commands: `aws bedrock list-foundation-models --region ap-southeast-1`, `aws bedrock list-inference-profiles --region ap-southeast-1`.
   - Done when: both model IDs are recorded in D-008 and access shows **Granted**.
 - [x] **P0-06** (2026-11-19: Knowledge Base on S3 Vectors ACTIVE in ap-southeast-1) Confirm which Knowledge Base vector stores are supported in `ap-southeast-1`, S3 Vectors first (D-007).
@@ -176,7 +176,7 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 - [x] **P6-02** (2026-11-21, D-020: not used for the MVP; the worker's job is one step, SQS gives retries and a DLQ, and polling on read finishes indexing and deletes; triggers and a first design are recorded) Evaluate Step Functions and record the decision.
 - [x] **P6-03** (2026-11-21: `.github/workflows/ci.yml`, 3 parallel jobs, no AWS credentials; first run green on PR #7: backend 21 s, frontend 16 s, infrastructure with real `cdk synth` 66 s) GitHub Actions CI: lint, unit tests, frontend build and `cdk synth` on each PR.
 - [ ] **P6-04** (Optional) GitHub Actions deploy through an OIDC role, with no stored AWS keys.
-- [ ] **P6-05** Architecture diagram, cost notes from real bills, demo video and screenshots for the portfolio.
+- [~] **P6-05** (2026-11-21: `docs/portfolio/architecture.svg`, `cost-notes.md` from Cost Explorer (under 1 cent for 17–20 November), `demo-script.md` shot list and video plan; screenshots and video need one deploy session) Architecture diagram, cost notes from real bills, demo video and screenshots for the portfolio.
 
 ---
 

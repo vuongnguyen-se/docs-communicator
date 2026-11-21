@@ -78,6 +78,17 @@ flowchart LR
         DDB[(DynamoDB:<br/>document metadata)]
     end
 
+    subgraph Ingest["Ingestion (D-019)"]
+        Q[[SQS: IngestQueue]]
+        W[Lambda: ingest worker]
+        DLQ[[SQS: IngestDLQ]]
+    end
+
+    subgraph Ops["Monitoring"]
+        CW[CloudWatch alarms]
+        SNS[SNS: email to owner]
+    end
+
     subgraph AI["AI (Amazon Bedrock)"]
         KB[Knowledge Base]
         VEC[(S3 Vectors index)]
@@ -95,7 +106,11 @@ flowchart LR
     U -->|4. direct upload<br/>presigned POST| DOCS
     LD --> DDB
     LD --> DOCS
-    LD -->|ingest / status / delete| KB
+    LD -->|status / delete| KB
+    DOCS -->|ObjectCreated uploads/*.pdf| Q --> W
+    W --> DDB
+    W -->|verify + ingest| KB
+    Q -->|after 3 failed tries| DLQ --> CW --> SNS
     LC -->|RetrieveAndGenerate| KB
     LC --> DDB
     KB --> EMB
@@ -104,7 +119,7 @@ flowchart LR
     DOCS -. source files .-> KB
 ```
 
-Today the **Edge**, **Identity** and the **health/me** part of the **API layer** are live-tested ✅. The **documents** and **chat** Lambdas exist as code but are not deployed yet. **Data** and **AI** are built in Phases 2–4.
+Every part shown here is live-tested ✅. A standalone picture of the same architecture, for slides and the portfolio, is in `docs/portfolio/architecture.svg`.
 
 ### Components
 
