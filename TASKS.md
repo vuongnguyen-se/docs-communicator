@@ -8,12 +8,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 | Phase | Goal | Status |
 |---|---|---|
-| 0 | Account, tooling and Region checks; prove the AI path in a throwaway spike | ✅ Done (P0-04 tag activation and optional Claude form left) |
+| 0 | Account, tooling and Region checks; prove the AI path in a throwaway spike | ✅ Done (only the optional Claude form, P0-05, is left) |
 | 1 | Secure skeleton: CDK, Cognito login, HTTP API, health Lambda, hosted frontend | ✅ Done (2026-11-18) |
 | 2 | Secure PDF upload with metadata and status | ✅ Done (2026-11-19) |
 | 3 | RAG ingestion into Bedrock Knowledge Base | ✅ Done (2026-11-19) |
 | 4 | Grounded chat with citations | ✅ Done (2026-11-20): **MVP complete** |
-| 5 | Hardening: delete flow, IAM review, alarms, Guardrails | ✅ Demo passed (2026-11-21); one follow-up open: P5-08 name mix-up in answers |
+| 5 | Hardening: delete flow, IAM review, alarms, Guardrails | ✅ Done (2026-11-21): demo passed, P5-08 name mix-up fixed |
 | 6 | Advanced: SQS/DLQ, CI/CD, portfolio polish | In progress: P6-03 CI done (2026-11-21) |
 
 **Every phase ends the same way:** deploy → run the phase demo → `cdk destroy` → run the teardown check → confirm the bill in Cost Explorer next day.
@@ -29,7 +29,7 @@ Account and safety (one-time, kept between sessions). Step-by-step guide: `docs/
   - Done when: `aws sts get-caller-identity --profile clouddocs-dev` returns the admin identity.
 - [x] **P0-03** (2026-11-18: `clouddocs-monthly` USD 10, alerts at 50%/100% actual and 80% forecast; recipient Active (legacy, already verified)) Create an AWS Budget (e.g. USD 10/month) with email alerts at 50%, 80% and 100% (actual) and 100% (forecasted).
   - Done when: the budget is visible and the alert email is confirmed.
-- [ ] **P0-04** Activate the cost allocation tag `Project` in the Billing console.
+- [x] **P0-04** (2026-11-21: `Project` (type Resource) Active, confirmed with `aws ce list-cost-allocation-tags`; the IAM-principal `Project` tag stays inactive, not needed) Activate the cost allocation tag `Project` in the Billing console.
   - Done when: the tag shows as active. It can take up to 24h to appear after the first tagged resource exists.
 
 Region and model checks (read-only, no cost):
@@ -165,7 +165,7 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
      - Knowledge Base: `aws bedrock-agent get-knowledge-base-documents` for that document returns nothing, or a not-found status.
   6. **Delete is owner-only:** user A uploads a PDF. User B sends `DELETE /documents/<A's documentId>` with B's token. The answer is `404`, and A's document is still listed and still answerable.
   7. **Destroy and check:** run `scripts\destroy.ps1`. The teardown check passes, with no stacks, tagged resources, log groups or SNS topic left. Confirm the bill in Cost Explorer the next day.
-- [ ] **P5-08** Name mix-up in answers (found in the P5-07 demo, 2026-11-21). The only document (`non-sensitive-pdf-docs.pdf`) described a UX designer named Huỳnh Trị. Asked "could you tell me a bit about Hung Vuong?", the answer described Huỳnh Trị's profile (VietMind, V-bits) as "Hùng Vương" and cited the PDF, so a wrong answer looked sourced. Retrieval and deletion were correct; the model assumed the person asked about was the person in the passages.
+- [x] **P5-08** (2026-11-21: prompt rule plus a `NO_ANSWER` decline marker, D-018; evaluation 14/14 with 3 new `ABS-*` cases; the demo question was declined in English and Vietnamese with no sources) Name mix-up in answers (found in the P5-07 demo, 2026-11-21). The only document (`non-sensitive-pdf-docs.pdf`) described a UX designer named Huỳnh Trị. Asked "could you tell me a bit about Hung Vuong?", the answer described Huỳnh Trị's profile (VietMind, V-bits) as "Hùng Vương" and cited the PDF, so a wrong answer looked sourced. Retrieval and deletion were correct; the model assumed the person asked about was the person in the passages.
   - Fix: add a rule to `PROMPT_TEMPLATE` (`backend/src/clouddocs/adapters/bedrock_kb.py`): answer about a named person, company or thing only if the search results name it; otherwise say it is not in the documents, in the question's language.
   - Evaluation: add cases to `eval/run_eval.py` (English and Vietnamese) that ask about a name absent from the fictional PDFs, expecting a decline with no sources; re-run and record in `docs/evaluation.md`.
   - Done when: the new cases pass, the existing 11 still pass, and a live check repeats the demo question with a decline.
@@ -196,3 +196,4 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 | 2026-11-20 | **Phase 5 (code)**: delete flow wired (P5-01), AWS error mapping to 503 `SERVICE_BUSY` (P5-05), faster cold starts, CloudWatch alarms + SNS (P5-03), IAM report `docs/iam-review.md` (P5-02), Guardrails and WAF decisions D-016/D-017 | None (no deploy) | P5-01 and P5-03 still need a live check in the Phase 5 demo. |
 | 2026-11-21 | Synced a second worktree with `main`; installed Python 3.12.10 there (winget, user scope) | None | On `main` at 817de92: 104 backend tests (ruff, mypy strict), 31 infra tests, 25 frontend tests, lint and build all pass. |
 | 2026-11-21 | **Phase 5 demo (P5-07)** from the second machine (new `clouddocs-dev` SSO profile, CDK CLI 2.1149.0): deploy 5 min, 7 alarms OK, forced 4xx spike fired `Api4xxSpike` and the email arrived, delete verified in DynamoDB, S3, Knowledge Base and retrieval (no answers 4 s after the `202`), other-user delete 404, owner checked the sign-in screen. Scripts: `deploy.ps1 -RequireApproval`, `destroy.ps1 -Force` for non-interactive runs | None (destroyed; teardown passed; only `CDKToolkit`) | Found: (1) P5-08 name mix-up in an answer; (2) `check-teardown.ps1` crashed under `destroy.ps1` (inherited `ErrorActionPreference=Stop` turned an expected Cognito not-found into an error, so `-Cleanup` was skipped); fixed and re-run: 2 log groups deleted, check passed. A chat answer that stayed on screen after its PDF was deleted was an old message, not a new answer (chat call times confirm). |
+| 2026-11-21 | **P5-08 live check**: prompt rule alone fixed the name mix-up, but the first evaluation run was 10/14: Bedrock attached citations to correct declines (ABS-1..3, and UN-1 regressed; ABS-2 declined in English). Added the `NO_ANSWER` decline marker (D-018), redeployed (22 s), re-ran: **14/14**; demo question declined in English and Vietnamese with no sources | None (destroyed; teardown passed in `destroy.ps1` itself, 3 log groups cleaned) | Evaluation PDFs generated outside the repo; `eval/venv` is git-ignored. |
