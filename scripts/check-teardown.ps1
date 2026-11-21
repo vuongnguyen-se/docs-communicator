@@ -6,6 +6,9 @@ param(
     [string]$Region = "ap-southeast-1",
     [switch]$Cleanup
 )
+# Some aws calls are expected to fail (e.g. describing a user pool that was just deleted); results
+# are judged by $LASTEXITCODE. A caller's "Stop" (destroy.ps1) would turn their stderr into a crash.
+$ErrorActionPreference = "Continue"
 
 $stacks = aws cloudformation list-stacks --profile $AwsProfile --region $Region `
     --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE UPDATE_ROLLBACK_COMPLETE ROLLBACK_COMPLETE DELETE_FAILED DELETE_IN_PROGRESS `
