@@ -18,11 +18,13 @@ describe("validation", () => {
 });
 
 describe("MockApi", () => {
-  it("moves a document from INDEXING to READY", async () => {
-    const api = new MockApi(30, 0);
+  it("moves a document from PENDING_UPLOAD through INDEXING to READY, like the queue worker", async () => {
+    const api = new MockApi(300, 0);
     const doc = await api.uploadDocument(pdf());
-    expect(doc.status).toBe("INDEXING");
-    await new Promise((r) => setTimeout(r, 50));
+    expect(doc.status).toBe("PENDING_UPLOAD");
+    await new Promise((r) => setTimeout(r, 150));
+    expect((await api.getDocument(doc.documentId)).status).toBe("INDEXING");
+    await new Promise((r) => setTimeout(r, 200));
     expect((await api.getDocument(doc.documentId)).status).toBe("READY");
   });
 

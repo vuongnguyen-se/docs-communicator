@@ -81,8 +81,8 @@ def upload(stack: Stack, user: str, path: Path) -> str:
              "Content-Type: application/pdf\r\n\r\n").encode() + data + f"\r\n--{boundary}--\r\n".encode()
     req = urllib.request.Request(form["url"], data=body, method="POST", headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
     assert urllib.request.urlopen(req).status == 204
-    st, b = stack.call(stack.docs_fn, "POST /documents/{id}/complete", user, doc_id=doc_id)
-    assert st == 202 and b["document"]["status"] == "INDEXING", (st, b)
+    # No /complete call: S3 reports the upload to the ingestion queue and the worker indexes it,
+    # exactly as for a browser upload. wait_ready() then waits for READY.
     return doc_id
 
 

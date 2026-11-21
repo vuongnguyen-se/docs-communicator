@@ -15,12 +15,15 @@ from aws_cdk import aws_cognito as cognito
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
+from aws_cdk import aws_lambda_event_sources as lambda_events
 from aws_cdk import aws_logs as logs
 from aws_cdk import aws_s3 as s3
+from aws_cdk import aws_sqs as sqs
 from constructs import Construct
 
 from .backend_code import ARCHITECTURE, RUNTIME, backend_code
 from .config import Config
+from .ingestion import WORKER_TIMEOUT
 
 
 class Api(Construct):
@@ -38,6 +41,7 @@ class Api(Construct):
         knowledge_base_id: str,
         knowledge_base_arn: str,
         data_source_id: str,
+        ingest_queue: sqs.IQueue,
     ) -> None:
         super().__init__(scope, construct_id)
         self._code = backend_code()
@@ -170,6 +174,65 @@ class Api(Construct):
             path="/chat/query",
             methods=[apigw.HttpMethod.POST],
             integration=integrations.HttpLambdaIntegration("ChatIntegration", self.chat_fn),
+        )
+
+        # Ingestion worker: verifies and indexes each upload reported by S3 through the queue.
+        self.worker_fn = self._function(
+            "Worker",
+            "clouddocs.handlers.ingest_worker.handler",
+            environment={
+                "DOCUMENTS_TABLE": documents_table.table_name,
+                "DOCUMENTS_BUCKET": documents_bucket.bucket_name,
+                "KNOWLEDGE_BASE_ID": knowledge_base_id,
+                "DATA_SOURCE_ID": data_source_id,
+            },
+            timeout=WORKER_TIMEOUT,
+        )
+        self.functions["Worker"] = self.worker_fn
+        self._grant_worker_access(self.worker_fn, documents_table, documents_bucket, knowledge_base_arn)
+        self.worker_fn.add_event_source(
+            lambda_events.SqsEventSource(
+                ingest_queue,
+                batch_size=5,
+                report_batch_item_failures=True,  # retry only the messages that failed
+                max_concurrency=2,  # keep Knowledge Base ingest calls gentle
+            )
+        )
+
+    @staticmethod
+    def _grant_worker_access(
+        fn: lambda_.IFunction, table: dynamodb.ITable, bucket: s3.IBucket, knowledge_base_arn: str
+    ) -> None:
+        """Only what verify + ingest needs: a strict subset of the documents Lambda's access."""
+        table.grant(fn, "dynamodb:GetItem", "dynamodb:UpdateItem")
+        fn.add_to_role_policy(
+            iam.PolicyStatement(
+                # GetObject: size + first bytes (PDF check). DeleteObject: remove a fake PDF.
+                actions=["s3:GetObject", "s3:DeleteObject"],
+                resources=[bucket.arn_for_objects("uploads/*.pdf")],
+            )
+        )
+        fn.add_to_role_policy(
+            iam.PolicyStatement(
+                # The <key>.pdf.metadata.json sidecar that carries the owner's userId.
+                actions=["s3:PutObject"],
+                resources=[bucket.arn_for_objects("uploads/*.pdf.metadata.json")],
+            )
+        )
+        fn.add_to_role_policy(
+            iam.PolicyStatement(
+                # Without ListBucket, S3 answers 403 instead of 404 for a missing object.
+                actions=["s3:ListBucket"],
+                resources=[bucket.bucket_arn],
+                conditions={"StringLike": {"s3:prefix": ["uploads/*"]}},
+            )
+        )
+        fn.add_to_role_policy(
+            iam.PolicyStatement(
+                # IngestKnowledgeBaseDocuments is authorized as bedrock:StartIngestionJob.
+                actions=["bedrock:StartIngestionJob", "bedrock:IngestKnowledgeBaseDocuments"],
+                resources=[knowledge_base_arn],
+            )
         )
 
     @property

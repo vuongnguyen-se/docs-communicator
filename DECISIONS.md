@@ -170,3 +170,16 @@ The owner shared a reference AWS diagram: Amplify, REST API, Cognito, an extract
 - **Why:** detection does not depend on the model's wording or language, and a decline can never carry sources.
 - **Evidence:** evaluation 14/14 (`docs/evaluation.md`), including 3 new `ABS-*` cases and UN-1, which had regressed. The demo question was declined in English and Vietnamese.
 
+
+## D-019 — Ingestion runs from S3 events through SQS; `/complete` becomes optional (P6-01)
+- **Status:** Accepted (2026-11-21)
+- **Problem:** the browser had to call `POST /documents/{id}/complete` after the S3 upload. A closed tab or a network drop in between left the document in `PENDING_UPLOAD` forever.
+- **Decision:**
+  - S3 sends `ObjectCreated` events for `uploads/*.pdf` to an SQS queue (`IngestQueue`). The suffix filter skips the `.pdf.metadata.json` sidecars the worker writes.
+  - A worker Lambda reads the owner and document ID from the key and reuses `DocumentService.complete_upload`: same file checks, same compare-and-set status changes, so it is idempotent.
+  - **Error policy:** an unknown key, a missing record or a record that is no longer `PENDING_UPLOAD` is logged and acknowledged, because a retry cannot fix it. Any other error is retried, and only the failed messages in a batch (`ReportBatchItemFailures`).
+  - **Queue settings:** batch size 5 and maximum concurrency 2 (gentle on Knowledge Base ingest calls); visibility timeout 180 s (6 × the 30 s worker timeout); after 3 receives the message moves to `IngestDLQ` (kept 14 days). Both queues are encrypted and TLS-only, and are destroyed with the stack (D-002).
+  - `IngestDLQNotEmpty` alarms on any message in the DLQ and emails the owner through the existing SNS topic.
+  - The browser no longer calls `/complete`. The route stays as an optional, idempotent "check now" call (owner's choice of the recommended default).
+- **Why not Step Functions:** one verify-then-ingest step needs no workflow engine; status polling on read already tracks indexing (P6-02 records the full evaluation).
+- **Evidence (2026-11-21 live demo):** 3 PDFs indexed through the queue in 7.9 s with no `/complete` call; a text file named `fake.pdf` ended `FAILED` / `INVALID_FILE` in 13 s and was deleted from S3; a broken message was retried 3 times (3 minutes apart), reached the DLQ, and the alarm email arrived; evaluation 14/14.

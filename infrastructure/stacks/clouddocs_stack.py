@@ -11,6 +11,7 @@ from .api import Api
 from .auth import Auth
 from .config import Config
 from .data import Data
+from .ingestion import Ingestion
 from .knowledge import Knowledge
 from .monitoring import Monitoring
 from .web import Web
@@ -26,6 +27,7 @@ class CloudDocsStack(Stack):
         origins = [*config.allowed_origins, web.url]
         data = Data(self, "Data", allowed_origins=origins)
         knowledge = Knowledge(self, "Knowledge", documents_bucket=data.bucket)
+        ingestion = Ingestion(self, "Ingestion", documents_bucket=data.bucket)
         api = Api(
             self,
             "Api",
@@ -38,6 +40,7 @@ class CloudDocsStack(Stack):
             knowledge_base_id=knowledge.knowledge_base_id,
             knowledge_base_arn=knowledge.knowledge_base_arn,
             data_source_id=knowledge.data_source_id,
+            ingest_queue=ingestion.queue,
         )
         Monitoring(
             self,
@@ -45,6 +48,7 @@ class CloudDocsStack(Stack):
             functions=api.functions,
             http_api=api.http_api,
             chat_function=api.chat_fn,
+            dead_letter_queue=ingestion.dead_letter_queue,
             alarm_email=config.alarm_email,
         )
         web.deploy_site(

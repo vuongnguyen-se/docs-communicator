@@ -76,13 +76,9 @@ export class HttpApi implements ApiClient {
     if (status < 200 || status >= 300) {
       throw new ApiError("UPLOAD_FAILED", "Storage rejected the file. Check it is a PDF under 10 MB and try again.", status);
     }
-
-    return (
-      await this.request<{ document: DocumentInfo }>(
-        "POST",
-        `/documents/${encodeURIComponent(document.documentId)}/complete`,
-      )
-    ).document;
+    // Done: S3 reports the new file to the ingestion queue, and a worker checks and indexes it.
+    // The document list's polling shows its progress (PENDING_UPLOAD -> INDEXING -> READY).
+    return document;
   }
 
   async deleteDocument(id: string): Promise<void> {

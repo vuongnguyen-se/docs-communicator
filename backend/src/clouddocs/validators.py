@@ -12,7 +12,7 @@ PDF_CONTENT_TYPE = "application/pdf"
 PDF_MAGIC = b"%PDF-"
 _DOC_ID_RE = re.compile(r"^doc_[0-9a-f]{32}$")
 _USER_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
-_KEY_RE = re.compile(r"^uploads/[A-Za-z0-9_-]+/(doc_[0-9a-f]{32})\.pdf$")
+_KEY_RE = re.compile(r"^uploads/([A-Za-z0-9_-]{1,128})/(doc_[0-9a-f]{32})\.pdf$")
 
 
 def validate_upload_request(filename: str, content_type: str, size: int, s: Settings) -> str:
@@ -68,5 +68,11 @@ def build_s3_key(user_id: str, document_id: str) -> str:
 
 
 def document_id_from_key(s3_key: str) -> str | None:
+    parsed = owner_and_document_from_key(s3_key)
+    return parsed[1] if parsed else None
+
+
+def owner_and_document_from_key(s3_key: str) -> tuple[str, str] | None:
+    """(owner, documentId) from a key built by build_s3_key; None for any other key."""
     m = _KEY_RE.match(s3_key)
-    return m.group(1) if m else None
+    return (m.group(1), m.group(2)) if m else None
