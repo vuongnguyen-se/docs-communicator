@@ -111,7 +111,7 @@ python eval/make_pdfs.py eval/out            # fictional English, Vietnamese and
 python eval/run_eval.py eval/out docs/evaluation.md
 ```
 
-It runs 11 cases (known answers, cross-lingual, unrelated questions, prompt injection, two-user isolation) and writes the report to `docs/evaluation.md`.
+It runs 14 cases (known answers, cross-lingual, unrelated questions, prompt injection, two-user isolation, names absent from the documents) and writes the report to `docs/evaluation.md`.
 
 ## Cost and cleanup
 
