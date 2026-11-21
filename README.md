@@ -77,6 +77,11 @@ powershell -ExecutionPolicy Bypass -File scripts\create-user.ps1 -Email you@exam
 # ... demo ...
 powershell -ExecutionPolicy Bypass -File scripts\destroy.ps1   # always, at the end of the session
 ```
+
+Options:
+- `deploy.ps1 -AlarmEmail you@example.com`: subscribes that address to the CloudWatch alarms. Confirm the subscription email.
+- `deploy.ps1 -RequireApproval never` and `destroy.ps1 -Force`: skip the interactive confirmations, for runs without a terminal (for example an automation agent). Only use them after the IAM review in `docs/iam-review.md`.
+- The scripts use `infrastructure\.venv`, or `infrastructure\venv` if that is what exists.
 - `PROMPT_FOR_CODING_AGENT.md`: initial prompt to paste into your coding platform.
 
 ## Configuration

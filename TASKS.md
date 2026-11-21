@@ -13,7 +13,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 | 2 | Secure PDF upload with metadata and status | ✅ Done (2026-11-19) |
 | 3 | RAG ingestion into Bedrock Knowledge Base | ✅ Done (2026-11-19) |
 | 4 | Grounded chat with citations | ✅ Done (2026-11-20): **MVP complete** |
-| 5 | Hardening: delete flow, IAM review, alarms, Guardrails | In progress: P5-02, 04, 05, 06 done; P5-01 and P5-03 wait for the live Phase 5 demo (P5-07) |
+| 5 | Hardening: delete flow, IAM review, alarms, Guardrails | ✅ Demo passed (2026-11-21); one follow-up open: P5-08 name mix-up in answers |
 | 6 | Advanced: SQS/DLQ, CI/CD, portfolio polish | Not started |
 
 **Every phase ends the same way:** deploy → run the phase demo → `cdk destroy` → run the teardown check → confirm the bill in Cost Explorer next day.
@@ -146,13 +146,13 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 
 ## Phase 5 — Hardening
 
-- [~] **P5-01** (code + tests done 2026-11-20; live check in the final Phase 5 demo) Wire up and verify `DELETE /documents/{id}` (the service logic and tests already exist). It deletes from the Knowledge Base (`DeleteKnowledgeBaseDocuments`), deletes the S3 object, and only then deletes the metadata. Verify the document is no longer retrievable.
+- [x] **P5-01** (2026-11-21, P5-07: after delete, 0 items in DynamoDB, S3 and the Knowledge Base, 0 retrieval results; the document stopped answering within 4 s of the `202`) Wire up and verify `DELETE /documents/{id}` (the service logic and tests already exist). It deletes from the Knowledge Base (`DeleteKnowledgeBaseDocuments`), deletes the S3 object, and only then deletes the metadata. Verify the document is no longer retrievable.
 - [x] **P5-02** (`infrastructure/tools/iam_report.py` -> `docs/iam-review.md`: 8 roles, 16 statements, 0 unreviewed wildcards) IAM review: list every Lambda role action and resource, and remove wildcards.
-- [~] **P5-03** (alarms per Lambda, API 5xx, 4xx spike, chat p90 latency -> SNS; email at deploy time only (`-AlarmEmail`); live check pending) CloudWatch alarms for Lambda errors, API 5xx and throttles, with an SNS email topic.
+- [~] **P5-03** (alarms per Lambda, API 5xx, 4xx spike, chat p90 latency -> SNS; email at deploy time only (`-AlarmEmail`); 2026-11-21, P5-07: a forced 4xx spike fired `Api4xxSpike` within 2 min, the email arrived, and the alarm returned to OK on its own) CloudWatch alarms for Lambda errors, API 5xx and throttles, with an SNS email topic.
 - [x] **P5-04** (D-016: not enabled for the MVP, with triggers to enable it) Evaluate Bedrock Guardrails (cost and benefit) and record the decision.
 - [x] **P5-05** (AWS throttling/unavailable -> 503 SERVICE_BUSY with a safe message; other AWS errors generic 500) Retry and error handling review: map boto3 throttling and validation errors to safe responses.
 - [x] **P5-06** (D-017: not enabled for the MVP, with triggers to enable it) Evaluate AWS WAF on CloudFront and the API. Record the decision; it is optional because of its cost.
-- [ ] **P5-07** 💰🧹 **Phase demo:** live checks for P5-01 and P5-03, plus the items left for "the next deploy". Use 1 small, non-sensitive PDF and 2 users (A and B). Done when every step passes, the results are recorded in the session log, and P5-01, P5-03 and Phase 5 are ticked.
+- [x] **P5-07** 💰🧹 (2026-11-21: steps 1–7 passed; step 6 used a simulated user-B request to the Documents Lambda, as `eval/run_eval.py` does; destroyed; teardown passed after a fix to `check-teardown.ps1`, see session log) **Phase demo:** live checks for P5-01 and P5-03, plus the items left for "the next deploy". Use 1 small, non-sensitive PDF and 2 users (A and B). Done when every step passes, the results are recorded in the session log, and P5-01, P5-03 and Phase 5 are ticked.
   1. **Deploy** with `scripts\deploy.ps1 -AlarmEmail <your email>`. This is also the first real run of `scripts\use-infra-venv.ps1`. Open the "AWS Notification – Subscription Confirmation" email and click **Confirm subscription**.
   2. **Sign-in screen (UI-02):** the Cognito sign-in card shows the Clouddocs styling and stays readable in both light and dark mode.
   3. **Alarms exist (P5-03):** CloudWatch → Alarms lists 7 alarms whose names contain `HealthErrors`, `MeErrors`, `DocumentsErrors`, `ChatErrors`, `Api5xx`, `Api4xxSpike` and `ChatSlow` (CDK adds the stack prefix). Each is in `OK` or "Insufficient data", never `ALARM`.
@@ -165,6 +165,10 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
      - Knowledge Base: `aws bedrock-agent get-knowledge-base-documents` for that document returns nothing, or a not-found status.
   6. **Delete is owner-only:** user A uploads a PDF. User B sends `DELETE /documents/<A's documentId>` with B's token. The answer is `404`, and A's document is still listed and still answerable.
   7. **Destroy and check:** run `scripts\destroy.ps1`. The teardown check passes, with no stacks, tagged resources, log groups or SNS topic left. Confirm the bill in Cost Explorer the next day.
+- [ ] **P5-08** Name mix-up in answers (found in the P5-07 demo, 2026-11-21). The only document (`non-sensitive-pdf-docs.pdf`) described a UX designer named Huỳnh Trị. Asked "could you tell me a bit about Hung Vuong?", the answer described Huỳnh Trị's profile (VietMind, V-bits) as "Hùng Vương" and cited the PDF, so a wrong answer looked sourced. Retrieval and deletion were correct; the model assumed the person asked about was the person in the passages.
+  - Fix: add a rule to `PROMPT_TEMPLATE` (`backend/src/clouddocs/adapters/bedrock_kb.py`): answer about a named person, company or thing only if the search results name it; otherwise say it is not in the documents, in the question's language.
+  - Evaluation: add cases to `eval/run_eval.py` (English and Vietnamese) that ask about a name absent from the fictional PDFs, expecting a decline with no sources; re-run and record in `docs/evaluation.md`.
+  - Done when: the new cases pass, the existing 11 still pass, and a live check repeats the demo question with a decline.
 
 ## Phase 6 — Advanced
 
@@ -191,3 +195,4 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 | 2026-11-20 | **UI track**: taste-skill (dealt palette/type, chat-chip pattern) → canvas mockup → owner's brand applied (logo, mark, blue/navy/amber) → built in the app; Vietnamese decline (UI-06) | None (local mock mode only) | Headless Edge driver: 8 screenshots, 0 console errors; found and fixed 2 phone bugs (panel wouldn't collapse, top bar wrapped). |
 | 2026-11-20 | **Phase 5 (code)**: delete flow wired (P5-01), AWS error mapping to 503 `SERVICE_BUSY` (P5-05), faster cold starts, CloudWatch alarms + SNS (P5-03), IAM report `docs/iam-review.md` (P5-02), Guardrails and WAF decisions D-016/D-017 | None (no deploy) | P5-01 and P5-03 still need a live check in the Phase 5 demo. |
 | 2026-11-21 | Synced a second worktree with `main`; installed Python 3.12.10 there (winget, user scope) | None | On `main` at 817de92: 104 backend tests (ruff, mypy strict), 31 infra tests, 25 frontend tests, lint and build all pass. |
+| 2026-11-21 | **Phase 5 demo (P5-07)** from the second machine (new `clouddocs-dev` SSO profile, CDK CLI 2.1149.0): deploy 5 min, 7 alarms OK, forced 4xx spike fired `Api4xxSpike` and the email arrived, delete verified in DynamoDB, S3, Knowledge Base and retrieval (no answers 4 s after the `202`), other-user delete 404, owner checked the sign-in screen. Scripts: `deploy.ps1 -RequireApproval`, `destroy.ps1 -Force` for non-interactive runs | None (destroyed; teardown passed; only `CDKToolkit`) | Found: (1) P5-08 name mix-up in an answer; (2) `check-teardown.ps1` crashed under `destroy.ps1` (inherited `ErrorActionPreference=Stop` turned an expected Cognito not-found into an error, so `-Cleanup` was skipped); fixed and re-run: 2 log groups deleted, check passed. A chat answer that stayed on screen after its PDF was deleted was an old message, not a new answer (chat call times confirm). |
