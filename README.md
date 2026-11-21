@@ -9,6 +9,16 @@
 - Uploads are checked and indexed by an S3 → SQS → Lambda pipeline with a dead-letter queue and alarms.
 - Infrastructure as code (CDK), CI on every pull request, and environments that exist only while in use: the AWS usage from 17 to 20 November 2026 cost under one cent (`docs/portfolio/cost-notes.md`).
 
+### Screenshots
+
+Real screens from a live deployment, with the fictional evaluation PDFs.
+
+| Upload: the worker checks each file | Indexing in the Knowledge Base |
+|---|---|
+| ![Three uploads showing "Checking file…"](docs/portfolio/screenshots/01-checking-file.png) | ![Two PDFs indexing, a fake PDF already rejected](docs/portfolio/screenshots/02-indexing.png) |
+| **Ready, and a renamed text file rejected** | **Answer with its source (light theme)** |
+| ![Two PDFs ready, fake.pdf failed](docs/portfolio/screenshots/03-ready-and-rejected.png) | ![A Vietnamese question answered from nimbus-handbook.pdf, with the source chip](docs/portfolio/screenshots/04-answer-with-source.png) |
+
 ## Product goal
 
 Build a portfolio-quality cloud application that demonstrates:
