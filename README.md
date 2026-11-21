@@ -2,6 +2,13 @@
 
 **CloudDocs AI** is a serverless, AI-powered document assistant on AWS. Users upload PDF documents and ask natural-language questions. The application retrieves relevant passages from those documents and uses Amazon Bedrock to generate grounded answers with source references.
 
+![CloudDocs AI architecture](docs/portfolio/architecture.svg)
+
+**At a glance:**
+- Answers in English and Vietnamese, only from the user's own PDFs, with the source passage for every answer. Evaluation: 14/14 (`docs/evaluation.md`).
+- Uploads are checked and indexed by an S3 → SQS → Lambda pipeline with a dead-letter queue and alarms.
+- Infrastructure as code (CDK), CI on every pull request, and environments that exist only while in use: the AWS usage from 17 to 20 November 2026 cost under one cent (`docs/portfolio/cost-notes.md`).
+
 ## Product goal
 
 Build a portfolio-quality cloud application that demonstrates:
@@ -59,6 +66,7 @@ Cognito authentication is part of the MVP (D-004). SQS-based ingestion, Step Fun
 - `DECISIONS.md`: architecture decision log.
 - `docs/HOW_IT_WORKS.md`: **start here**: architecture, flows, stages and current status.
 - `docs/aws-account-setup.md`: one-time AWS account, CLI and budget setup.
+- `docs/portfolio/`: architecture diagram, cost notes from the real bill, and the demo script for screenshots and video.
 
 ## Run the tests locally
 

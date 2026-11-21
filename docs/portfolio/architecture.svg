@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1190 700" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">CloudDocs AI architecture</title>
+  <desc id="d">The browser loads the app from CloudFront, signs in with Cognito, and calls API Gateway with a JWT. API Gateway routes to Lambda functions for health, documents and chat. PDFs go straight from the browser to a private S3 bucket; S3 events feed an SQS queue whose worker Lambda verifies and ingests each file into a Bedrock Knowledge Base on S3 Vectors. Failed messages go to a dead-letter queue, and CloudWatch alarms email the owner through SNS.</desc>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3b4558"/>
+    </marker>
+    <style>
+      .box { stroke-width: 2; rx: 9; }
+      .t { font-size: 14px; font-weight: 600; fill: #172033; text-anchor: middle; }
+      .s { font-size: 11.5px; fill: #4a5468; text-anchor: middle; }
+      .e { font-size: 11px; fill: #3b4558; }
+      .ln { stroke: #3b4558; stroke-width: 1.6; fill: none; }
+      .edge { fill: #f5f3ff; stroke: #8c4fff; }
+      .idn { fill: #fff1f3; stroke: #dd344c; }
+      .api { fill: #fdf2fa; stroke: #e7157b; }
+      .cmp { fill: #fff6ec; stroke: #ed7100; }
+      .sto { fill: #f3f8e8; stroke: #7aa116; }
+      .db  { fill: #eef3ff; stroke: #2f5fd0; }
+      .ai  { fill: #e9faf6; stroke: #01a88d; }
+      .mon { fill: #fdf2fa; stroke: #e7157b; }
+    </style>
+  </defs>
+
+  <rect width="1190" height="700" fill="#ffffff"/>
+  <text x="20" y="26" font-size="18" font-weight="700" fill="#172033">CloudDocs AI · serverless RAG on AWS (ap-southeast-1)</text>
+
+  <!-- Browser -->
+  <rect x="20" y="50" width="120" height="580" class="box" fill="#f7f8fb" stroke="#3b4558"/>
+  <text x="80" y="330" class="t">User's</text>
+  <text x="80" y="348" class="t">browser</text>
+  <text x="80" y="368" class="s">React SPA</text>
+
+  <!-- Column A -->
+  <rect x="200" y="60" width="170" height="56" class="box edge"/>
+  <text x="285" y="84" class="t">CloudFront</text><text x="285" y="102" class="s">HTTPS · security headers</text>
+  <rect x="200" y="160" width="170" height="56" class="box idn"/>
+  <text x="285" y="184" class="t">Cognito</text><text x="285" y="202" class="s">admin-created users only</text>
+  <rect x="200" y="300" width="170" height="70" class="box api"/>
+  <text x="285" y="326" class="t">API Gateway</text><text x="285" y="344" class="s">JWT check · throttling</text><text x="285" y="359" class="s">CORS for the site only</text>
+  <rect x="200" y="490" width="170" height="56" class="box sto"/>
+  <text x="285" y="514" class="t">S3 · documents</text><text x="285" y="532" class="s">private · encrypted</text>
+
+  <!-- Column B -->
+  <rect x="450" y="60" width="170" height="56" class="box sto"/>
+  <text x="535" y="84" class="t">S3 · website</text><text x="535" y="102" class="s">private (OAC)</text>
+  <rect x="450" y="250" width="170" height="48" class="box cmp"/>
+  <text x="535" y="279" class="t">λ health · me</text>
+  <rect x="450" y="315" width="170" height="48" class="box cmp"/>
+  <text x="535" y="344" class="t">λ documents</text>
+  <rect x="450" y="380" width="170" height="48" class="box cmp"/>
+  <text x="535" y="409" class="t">λ chat</text>
+  <rect x="450" y="490" width="170" height="56" class="box api"/>
+  <text x="535" y="514" class="t">SQS · IngestQueue</text><text x="535" y="532" class="s">encrypted · TLS only</text>
+  <rect x="450" y="600" width="170" height="56" class="box api"/>
+  <text x="535" y="624" class="t">SQS · IngestDLQ</text><text x="535" y="642" class="s">kept 14 days</text>
+
+  <!-- Column C -->
+  <rect x="700" y="250" width="170" height="48" class="box db"/>
+  <text x="785" y="270" class="t">DynamoDB</text><text x="785" y="288" class="s">document records</text>
+  <rect x="700" y="490" width="170" height="56" class="box cmp"/>
+  <text x="785" y="514" class="t">λ ingest worker</text><text x="785" y="532" class="s">verify PDF · ingest · status</text>
+  <rect x="700" y="600" width="170" height="56" class="box mon"/>
+  <text x="785" y="624" class="t">CloudWatch alarms</text><text x="785" y="642" class="s">DLQ · Lambda errors · API</text>
+
+  <!-- Bedrock -->
+  <rect x="930" y="170" width="240" height="290" rx="12" fill="none" stroke="#01a88d" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <text x="1050" y="190" class="s" font-weight="600" fill="#01775f">Amazon Bedrock</text>
+  <rect x="950" y="200" width="200" height="48" class="box ai"/>
+  <text x="1050" y="229" class="t">Knowledge Base</text>
+  <rect x="950" y="270" width="200" height="50" class="box ai"/>
+  <text x="1050" y="292" class="t">Cohere Embed</text><text x="1050" y="309" class="s">multilingual v3</text>
+  <rect x="950" y="330" width="200" height="50" class="box sto"/>
+  <text x="1050" y="352" class="t">S3 Vectors</text><text x="1050" y="369" class="s">no idle cost</text>
+  <rect x="950" y="390" width="200" height="50" class="box ai"/>
+  <text x="1050" y="412" class="t">Nova Lite</text><text x="1050" y="429" class="s">answers with citations</text>
+  <rect x="950" y="600" width="200" height="56" class="box mon"/>
+  <text x="1050" y="624" class="t">SNS → email</text><text x="1050" y="642" class="s">owner alerts</text>
+
+  <!-- Edges -->
+  <line x1="140" y1="88" x2="197" y2="88" class="ln" marker-end="url(#ar)"/>
+  <line x1="370" y1="88" x2="447" y2="88" class="ln" marker-end="url(#ar)"/>
+  <line x1="140" y1="188" x2="197" y2="188" class="ln" marker-end="url(#ar)"/>
+  <line x1="140" y1="335" x2="197" y2="335" class="ln" marker-end="url(#ar)"/>
+  <line x1="285" y1="300" x2="285" y2="219" class="ln" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+  <polyline points="370,320 410,320 410,274 447,274" class="ln" marker-end="url(#ar)"/>
+  <line x1="370" y1="339" x2="447" y2="339" class="ln" marker-end="url(#ar)"/>
+  <polyline points="370,355 410,355 410,404 447,404" class="ln" marker-end="url(#ar)"/>
+  <polyline points="620,330 660,330 660,274 697,274" class="ln" marker-end="url(#ar)"/>
+  <polyline points="620,350 900,350 900,224 947,224" class="ln" marker-end="url(#ar)"/>
+  <polyline points="620,404 900,404 900,350" class="ln"/>
+  <line x1="140" y1="518" x2="197" y2="518" class="ln" marker-end="url(#ar)"/>
+  <line x1="370" y1="518" x2="447" y2="518" class="ln" marker-end="url(#ar)"/>
+  <line x1="620" y1="518" x2="697" y2="518" class="ln" marker-end="url(#ar)"/>
+  <polyline points="870,505 1050,505 1050,463" class="ln" marker-end="url(#ar)"/>
+  <line x1="785" y1="490" x2="785" y2="301" class="ln" marker-end="url(#ar)"/>
+  <line x1="535" y1="546" x2="535" y2="597" class="ln" marker-end="url(#ar)"/>
+  <line x1="620" y1="628" x2="697" y2="628" class="ln" marker-end="url(#ar)"/>
+  <line x1="870" y1="628" x2="947" y2="628" class="ln" marker-end="url(#ar)"/>
+
+  <!-- Edge labels -->
+  <text x="146" y="80" class="e">1 load</text>
+  <text x="146" y="180" class="e">2 sign in</text>
+  <text x="146" y="327" class="e">3 API+JWT</text>
+  <text x="146" y="510" class="e">4 upload</text>
+  <text x="146" y="562" class="e">(presigned POST,</text>
+  <text x="146" y="576" class="e">≤ 10 MB, PDF only)</text>
+  <text x="292" y="262" class="e">verifies token</text>
+  <text x="626" y="322" class="e">records</text>
+  <text x="680" y="343" class="e">status · delete</text>
+  <text x="680" y="398" class="e">RetrieveAndGenerate (own docs only)</text>
+  <text x="376" y="510" class="e">S3 event</text>
+  <text x="376" y="562" class="e">uploads/*.pdf</text>
+  <text x="626" y="510" class="e">batch ≤ 5</text>
+  <text x="880" y="498" class="e">ingest</text>
+  <text x="792" y="470" class="e">status</text>
+  <text x="542" y="580" class="e">after 3 failed tries</text>
+  <text x="626" y="620" class="e">≥ 1 msg</text>
+  <text x="876" y="620" class="e">alarm</text>
+
+  <text x="20" y="690" class="s" style="text-anchor:start">Infrastructure as code (AWS CDK, Python) · every resource tagged Project=CloudDocsAI · deployed per session, then destroyed (ephemeral environments) · CI on GitHub Actions</text>
+</svg>
