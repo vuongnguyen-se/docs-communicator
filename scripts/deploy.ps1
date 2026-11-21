@@ -10,7 +10,7 @@ $ErrorActionPreference = "Stop"
 $infra = Join-Path $PSScriptRoot "..\infrastructure"
 Push-Location $infra
 try {
-    & .\.venv\Scripts\Activate.ps1
+    . (Join-Path $PSScriptRoot "use-infra-venv.ps1")
     aws sts get-caller-identity --profile $AwsProfile --query Arn --output text | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Not logged in. Run: aws sso login --profile $AwsProfile" }
 

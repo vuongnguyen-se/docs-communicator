@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 $infra = Join-Path $PSScriptRoot "..\infrastructure"
 Push-Location $infra
 try {
-    & .\.venv\Scripts\Activate.ps1
+    . (Join-Path $PSScriptRoot "use-infra-venv.ps1")
     cdk destroy --profile $AwsProfile   # asks for confirmation
     if ($LASTEXITCODE -ne 0) { throw "cdk destroy failed" }
     Remove-Item -ErrorAction SilentlyContinue cdk-outputs.json

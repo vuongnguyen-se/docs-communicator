@@ -13,7 +13,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 | 2 | Secure PDF upload with metadata and status | ✅ Done (2026-11-19) |
 | 3 | RAG ingestion into Bedrock Knowledge Base | ✅ Done (2026-11-19) |
 | 4 | Grounded chat with citations | ✅ Done (2026-11-20): **MVP complete** |
-| 5 | Hardening: delete flow, IAM review, alarms, Guardrails | Not started |
+| 5 | Hardening: delete flow, IAM review, alarms, Guardrails | In progress: P5-02, 04, 05, 06 done; P5-01 and P5-03 wait for the live Phase 5 demo |
 | 6 | Advanced: SQS/DLQ, CI/CD, portfolio polish | Not started |
 
 **Every phase ends the same way:** deploy → run the phase demo → `cdk destroy` → run the teardown check → confirm the bill in Cost Explorer next day.
@@ -176,3 +176,5 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 | 2026-11-19 | Progress deck; **Phase 3** built and demoed: Knowledge Base on S3 Vectors in CDK, automatic first sync, Bedrock adapter with sidecar metadata | None (destroyed, teardown passed) | Found in the demo: per-document ingestion needs `bedrock:StartIngestionJob` (the spike ran as admin, so it could not catch this); fixed and redeployed in 32 s. READY in about 4 s. Cold start about 6 s with the bundled boto3 (D-014), warm 78 ms. Teardown cleanup now retries because helper log groups can reappear. |
 | 2026-11-20 | **Phase 4 / MVP demo**: chat endpoint deployed; evaluation 11/11; owner browser test (an English question about a Vietnamese PDF was answered with its source; questions about another user's documents were declined); all 12 acceptance criteria met | None (destroyed, teardown passed) | Found in the demo: RetrieveAndGenerate with an inference profile needs `bedrock:GetInferenceProfile`; fixed in 32 s. Added README configuration, evaluation and cleanup sections. |
 | 2026-11-20 | **UI track**: taste-skill (dealt palette/type, chat-chip pattern) → canvas mockup → owner's brand applied (logo, mark, blue/navy/amber) → built in the app; Vietnamese decline (UI-06) | None (local mock mode only) | Headless Edge driver: 8 screenshots, 0 console errors; found and fixed 2 phone bugs (panel wouldn't collapse, top bar wrapped). |
+| 2026-11-20 | **Phase 5 (code)**: delete flow wired (P5-01), AWS error mapping to 503 `SERVICE_BUSY` (P5-05), faster cold starts, CloudWatch alarms + SNS (P5-03), IAM report `docs/iam-review.md` (P5-02), Guardrails and WAF decisions D-016/D-017 | None (no deploy) | P5-01 and P5-03 still need a live check in the Phase 5 demo. |
+| 2026-11-21 | Synced a second worktree with `main`; installed Python 3.12.10 there (winget, user scope) | None | On `main` at 817de92: 104 backend tests (ruff, mypy strict), 31 infra tests, 25 frontend tests, lint and build all pass. |
