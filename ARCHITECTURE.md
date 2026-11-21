@@ -73,7 +73,7 @@ Do not fabricate citations. Preserve the source metadata returned by Bedrock and
 ## 5. Asynchronous ingestion (implemented in Phase 6, D-019)
 
 - In place: S3 event notification -> SQS -> ingestion worker Lambda, with a dead-letter queue and an `IngestDLQNotEmpty` alarm.
-- Still possible later: Step Functions for multi-step ingestion and Bedrock Guardrails for content safeguards (D-016). Add them only when a concrete need appears.
+- Not used for now, each with written triggers for adopting it: Step Functions for multi-step ingestion (D-020) and Bedrock Guardrails for content safeguards (D-016).
 
 ## 6. Region and service availability
 

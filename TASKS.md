@@ -14,7 +14,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 | 3 | RAG ingestion into Bedrock Knowledge Base | ✅ Done (2026-11-19) |
 | 4 | Grounded chat with citations | ✅ Done (2026-11-20): **MVP complete** |
 | 5 | Hardening: delete flow, IAM review, alarms, Guardrails | ✅ Done (2026-11-21): demo passed, P5-08 name mix-up fixed |
-| 6 | Advanced: SQS/DLQ, CI/CD, portfolio polish | In progress: P6-03 CI and P6-01 SQS/DLQ done (2026-11-21) |
+| 6 | Advanced: SQS/DLQ, CI/CD, portfolio polish | In progress: P6-03 CI, P6-01 SQS/DLQ and P6-02 decision done (2026-11-21) |
 
 **Every phase ends the same way:** deploy → run the phase demo → `cdk destroy` → run the teardown check → confirm the bill in Cost Explorer next day.
 
@@ -173,7 +173,7 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 ## Phase 6 — Advanced
 
 - [x] **P6-01** (2026-11-21, D-019: worker reuses `complete_upload`; `/complete` kept as an optional "check now"; live demo: 3 PDFs READY via the queue in 7.9 s, fake PDF `FAILED` and deleted, broken message → 3 retries → DLQ → alarm email; evaluation 14/14) S3 event → SQS → ingestion worker Lambda, with a DLQ (replaces the manual `/complete` call).
-- [ ] **P6-02** Evaluate Step Functions and record the decision.
+- [x] **P6-02** (2026-11-21, D-020: not used for the MVP; the worker's job is one step, SQS gives retries and a DLQ, and polling on read finishes indexing and deletes; triggers and a first design are recorded) Evaluate Step Functions and record the decision.
 - [x] **P6-03** (2026-11-21: `.github/workflows/ci.yml`, 3 parallel jobs, no AWS credentials; first run green on PR #7: backend 21 s, frontend 16 s, infrastructure with real `cdk synth` 66 s) GitHub Actions CI: lint, unit tests, frontend build and `cdk synth` on each PR.
 - [ ] **P6-04** (Optional) GitHub Actions deploy through an OIDC role, with no stored AWS keys.
 - [ ] **P6-05** Architecture diagram, cost notes from real bills, demo video and screenshots for the portfolio.
