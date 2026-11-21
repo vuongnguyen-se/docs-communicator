@@ -8,7 +8,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 | Phase | Goal | Status |
 |---|---|---|
-| 0 | Account, tooling and Region checks; prove the AI path in a throwaway spike | ✅ Done (P0-04 tag activation and optional Claude form left) |
+| 0 | Account, tooling and Region checks; prove the AI path in a throwaway spike | ✅ Done (only the optional Claude form, P0-05, is left) |
 | 1 | Secure skeleton: CDK, Cognito login, HTTP API, health Lambda, hosted frontend | ✅ Done (2026-11-18) |
 | 2 | Secure PDF upload with metadata and status | ✅ Done (2026-11-19) |
 | 3 | RAG ingestion into Bedrock Knowledge Base | ✅ Done (2026-11-19) |
@@ -29,7 +29,7 @@ Account and safety (one-time, kept between sessions). Step-by-step guide: `docs/
   - Done when: `aws sts get-caller-identity --profile clouddocs-dev` returns the admin identity.
 - [x] **P0-03** (2026-11-18: `clouddocs-monthly` USD 10, alerts at 50%/100% actual and 80% forecast; recipient Active (legacy, already verified)) Create an AWS Budget (e.g. USD 10/month) with email alerts at 50%, 80% and 100% (actual) and 100% (forecasted).
   - Done when: the budget is visible and the alert email is confirmed.
-- [ ] **P0-04** Activate the cost allocation tag `Project` in the Billing console.
+- [x] **P0-04** (2026-11-21: `Project` (type Resource) Active, confirmed with `aws ce list-cost-allocation-tags`; the IAM-principal `Project` tag stays inactive, not needed) Activate the cost allocation tag `Project` in the Billing console.
   - Done when: the tag shows as active. It can take up to 24h to appear after the first tagged resource exists.
 
 Region and model checks (read-only, no cost):
