@@ -48,11 +48,14 @@ The diagram is conceptual. Region: `ap-southeast-1`. Ingestion uses the Knowledg
 1. Browser calls `POST /documents/upload-url` with filename, content type, and size.
 2. Document Lambda validates the request and creates a document record with status `PENDING_UPLOAD`.
 3. Lambda returns a short-lived presigned S3 POST (policy limits size and type) and a document ID.
-4. Browser uploads directly to the private S3 bucket using that URL.
-5. Browser calls `POST /documents/{documentId}/complete`. The backend checks the real size and the `%PDF-` header (a verified S3-event-driven workflow replaces this in Phase 6).
-6. Backend checks that the object exists under the caller's prefix, then calls `IngestKnowledgeBaseDocuments` for that one S3 object with `userId` metadata (D-006).
-7. Status is checked with `GetKnowledgeBaseDocuments` in a bounded, retry-safe way.
-8. Mark the document `READY` only after ingestion is confirmed complete. Handle failures explicitly.
+4. Browser uploads directly to the private S3 bucket using that URL. The browser's part ends here.
+5. S3 sends an `ObjectCreated` event (prefix `uploads/`, suffix `.pdf`) to the SQS ingestion queue (D-019).
+6. The ingestion worker Lambda reads the owner and document ID from the key and requires a matching `PENDING_UPLOAD` record. It checks the real size and the `%PDF-` header, deleting invalid files (`FAILED` / `INVALID_FILE`).
+7. For a valid file it calls `IngestKnowledgeBaseDocuments` for that one S3 object with `userId` metadata (D-006) and sets `INDEXING`.
+8. Status is checked with `GetKnowledgeBaseDocuments` when the document list is read (bounded and retry-safe). The document is marked `READY` only after the Knowledge Base confirms it is indexed.
+9. Transient errors are retried by SQS. After 3 failed receives the message moves to a dead-letter queue, and an alarm emails the owner.
+
+`POST /documents/{documentId}/complete` still runs steps 6–7 on demand, as an optional "check now" call. It is idempotent with the worker.
 
 **Important:** `StartIngestionJob` syncs a whole data source; direct ingestion works per document. Do not run both at the same time. The data source needs one initial sync after creation. Deleting from the Knowledge Base does not delete the S3 object. If direct ingestion fails the Phase 0 spike, fall back to serialized sync jobs with a DynamoDB lock.
 
@@ -67,15 +70,10 @@ The diagram is conceptual. Region: `ap-southeast-1`. Ingestion uses the Knowledg
 
 Do not fabricate citations. Preserve the source metadata returned by Bedrock and show only fields that are actually available.
 
-## 5. Future asynchronous architecture
+## 5. Asynchronous ingestion (implemented in Phase 6, D-019)
 
-After the MVP works, consider:
-- S3 event notification -> SQS -> ingestion worker Lambda.
-- Step Functions for multi-step ingestion, retries, and status transitions.
-- Dead-letter queue for failed messages.
-- Bedrock Guardrails for configurable content safeguards.
-
-Do not introduce these services before the simpler workflow is understood and tested.
+- In place: S3 event notification -> SQS -> ingestion worker Lambda, with a dead-letter queue and an `IngestDLQNotEmpty` alarm.
+- Still possible later: Step Functions for multi-step ingestion and Bedrock Guardrails for content safeguards (D-016). Add them only when a concrete need appears.
 
 ## 6. Region and service availability
 

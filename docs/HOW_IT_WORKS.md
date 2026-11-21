@@ -38,15 +38,16 @@ Everything is **serverless**: there are no servers to manage, and you pay per re
 | `GET /health`, `GET /me` Lambdas | ✅ | `backend/src/clouddocs/handlers/health.py`, `me.py` |
 | Website on private S3 + CloudFront, security headers | ✅ | `infrastructure/stacks/web.py` |
 | Deploy / destroy / teardown-check scripts | ✅ | `scripts/` |
-| Upload, complete, list (delete: logic only) | ✅ upload/complete/list live-tested · 🧪 delete | `backend/src/clouddocs/services/documents.py` |
+| Upload, list, delete | ✅ | `backend/src/clouddocs/services/documents.py` |
+| Queued ingestion: S3 event → SQS → worker, DLQ + alarm | ✅ live-tested 2026-11-21 | `backend/src/clouddocs/handlers/ingest_worker.py`, `infrastructure/stacks/ingestion.py` |
 | Chat logic and citation mapping | ✅ | `backend/src/clouddocs/services/chat.py`, `rag.py` |
-| Frontend upload, list, chat and real API client | 🧪 | `frontend/src/components/`, `frontend/src/api/http.ts` |
+| Frontend upload, list, chat and real API client | ✅ | `frontend/src/components/`, `frontend/src/api/http.ts` |
 | Document bucket, DynamoDB table, boto3 adapters | ✅ | `infrastructure/stacks/data.py`, `backend/src/clouddocs/adapters/` |
 | Bedrock Knowledge Base + S3 Vectors, per-document indexing | ✅ | `infrastructure/stacks/knowledge.py`, `backend/src/clouddocs/adapters/bedrock_kb.py` |
-| Grounded chat end to end (evaluation 11/11) | ✅ | `backend/src/clouddocs/adapters/bedrock_kb.py`, `docs/evaluation.md` |
+| Grounded chat end to end (evaluation 14/14) | ✅ | `backend/src/clouddocs/adapters/bedrock_kb.py`, `docs/evaluation.md` |
 | Visual design (brand, dark/light, phone layout) | ✅ local · deploy check pending | `frontend/src/styles.css`, `frontend/public/brand/`, D-015 |
-| Alarms, IAM review, Guardrails | ⬜ Phase 5 | — |
-| SQS/DLQ, CI/CD | ⬜ Phase 6 | — |
+| Alarms, IAM review, Guardrails/WAF decisions | ✅ | `infrastructure/stacks/monitoring.py`, `docs/iam-review.md`, D-016/D-017 |
+| CI (GitHub Actions) | ✅ | `.github/workflows/ci.yml` |
 
 ---
 
@@ -169,7 +170,7 @@ sequenceDiagram
 
 The **user identity always comes from the verified token's `sub` claim**, never from the request body. Every database key and S3 path is built from it, so one user can't reach another user's data.
 
-### 4.3 Uploading a PDF ✅ (live-tested in Phase 2; the Knowledge Base step arrives in Phase 3)
+### 4.3 Uploading a PDF ✅ (queued ingestion live-tested 2026-11-21)
 
 ```mermaid
 sequenceDiagram
@@ -179,6 +180,8 @@ sequenceDiagram
     participant D as Documents Lambda
     participant DB as DynamoDB
     participant S3 as S3 (documents)
+    participant Q as SQS IngestQueue
+    participant W as Worker Lambda
     participant KB as Knowledge Base
     B->>B: check: .pdf, application/pdf, ≤ 10 MB
     B->>GW: POST /documents/upload-url {filename, contentType, size}
@@ -187,25 +190,27 @@ sequenceDiagram
     D->>DB: put {status: PENDING_UPLOAD}
     D-->>B: 201 {document, upload: {url, fields}} (valid 300 s)
     B->>S3: POST multipart form (no API token)<br/>S3 enforces size ≤ 10 MB and type
-    B->>GW: POST /documents/{id}/complete
-    GW->>D: (token verified)
-    D->>S3: HEAD + read first bytes
-    alt missing
-        D-->>B: 409 upload not found
-    else not a real PDF or too big
-        D->>S3: delete object
-        D->>DB: status FAILED (INVALID_FILE)
+    Note over B: the browser is done; it only polls the list now
+    S3->>Q: ObjectCreated (uploads/*.pdf)
+    Q->>W: batch of up to 5 messages
+    W->>W: key → owner + docId; record must be PENDING_UPLOAD
+    W->>S3: HEAD + read first bytes
+    alt not a real PDF or too big
+        W->>S3: delete object
+        W->>DB: status FAILED (INVALID_FILE)
     else valid
-        D->>DB: status UPLOADED
-        D->>S3: write <key>.metadata.json {userId, documentId}
-        D->>KB: IngestKnowledgeBaseDocuments (PDF + metadata S3 locations)
-        D->>DB: status INDEXING
-        D-->>B: 202 {document}
+        W->>DB: status UPLOADED
+        W->>S3: write <key>.metadata.json {userId, documentId}
+        W->>KB: IngestKnowledgeBaseDocuments (PDF + metadata S3 locations)
+        W->>DB: status INDEXING
     end
+    Note over Q,W: an AWS error → message retried (3 tries),<br/>then moved to IngestDLQ → alarm email
 ```
 
 - **Presigned POST** (D-013): a short-lived signed form that lets the browser upload one file straight to S3. Its policy enforces the size and content type at S3 itself.
-- **Checked twice:** the browser checks for user experience, and the server checks again because the browser can't be trusted. After upload, the server also checks the real file starts with `%PDF-`.
+- **Checked twice:** the browser checks for user experience, and the server checks again because the browser can't be trusted. After upload, the worker also checks the real file starts with `%PDF-`.
+- **Why a queue** (D-019): the work no longer depends on the browser staying open after the upload. Failed messages are retried; after 3 tries they go to the dead-letter queue and the `IngestDLQNotEmpty` alarm emails the owner. `POST /documents/{id}/complete` still exists as an optional "check now" call.
+- **Live check:** a real PDF went `PENDING_UPLOAD → INDEXING → READY` with no `/complete` call; a text file named `fake.pdf` ended `FAILED` / `INVALID_FILE` in 13 s and was deleted; a broken message was retried 3 times, reached the DLQ and the alarm email arrived.
 
 ### 4.4 Indexing and status ✅ (live-tested in Phase 3: READY in about 4 s)
 
@@ -214,7 +219,7 @@ The browser polls `GET /documents`. For any document in `INDEXING`, the Lambda a
 ```mermaid
 stateDiagram-v2
     [*] --> PENDING_UPLOAD: upload-url issued
-    PENDING_UPLOAD --> UPLOADED: /complete, file verified
+    PENDING_UPLOAD --> UPLOADED: worker verified the file
     PENDING_UPLOAD --> FAILED: invalid file
     UPLOADED --> INDEXING: ingestion requested
     UPLOADED --> FAILED: ingestion request failed
@@ -259,7 +264,7 @@ sequenceDiagram
 
 There are two layers of protection between users: the **retrieval filter** (`userId = sub`) and the **citation check** against the caller's own documents. **Citations are never invented**: only passages Bedrock actually returned are shown. Text inside documents is treated as data, so the prompt tells the model to ignore instructions found in documents.
 
-### 4.6 Deleting a document 🧪 (Phase 5)
+### 4.6 Deleting a document ✅ (live-tested in Phase 5)
 
 1. Mark the document `DELETING`.
 2. `DeleteKnowledgeBaseDocuments` removes it from the index.
@@ -297,8 +302,8 @@ flowchart LR
 | 3 RAG ingestion | Knowledge Base + S3 Vectors in CDK, per-document indexing | ✅ Done 2026-11-19 |
 | 4 Grounded chat | Filtered `RetrieveAndGenerate`, citations, evaluation set | ✅ Done 2026-11-20: **MVP complete** |
 | UI track | Visual design in mock mode | ⬜ Any time, free |
-| 5 Hardening | Delete flow live, IAM review, alarms, Guardrails/WAF decisions | ⬜ |
-| 6 Advanced | SQS + DLQ ingestion, GitHub Actions CI, portfolio material | ⬜ |
+| 5 Hardening | Delete flow live, IAM review, alarms, Guardrails/WAF decisions | ✅ Done 2026-11-21 |
+| 6 Advanced | SQS + DLQ ingestion, GitHub Actions CI, portfolio material | 🔄 CI and SQS/DLQ done 2026-11-21 |
 
 ---
 

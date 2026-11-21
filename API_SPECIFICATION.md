@@ -45,12 +45,14 @@ The browser POSTs the file as `multipart/form-data` to `upload.url`, sending all
 
 This is a **presigned POST**, not a PUT (D-013). Its policy enforces `content-length-range` (≤ 10 MB) and `Content-Type`, which a presigned PUT cannot enforce. The server generates the key `uploads/<sub>/<documentId>.pdf`.
 
-## POST /documents/{id}/complete → 202
+## POST /documents/{id}/complete → 202 (optional)
+The browser does **not** need this call. After the S3 upload, S3 notifies the ingestion queue and a worker runs the same steps (D-019). This route is kept as an optional "check now" call:
+
 1. Verifies the stored object: it exists, its real size is within the limit, and it starts with the `%PDF-` header.
 2. Calls `IngestKnowledgeBaseDocuments` with `userId` metadata.
 3. Sets the status to `INDEXING`.
 
-This call is idempotent. It returns `{ "document": {…} }` with status `INDEXING`, or `FAILED` with `errorCode` `INVALID_FILE` or `INGEST_REQUEST_FAILED`. It returns `409` if the file was not uploaded yet.
+This call is idempotent. It returns `{ "document": {…} }` with status `INDEXING`, or `FAILED` with `errorCode` `INVALID_FILE` or `INGEST_REQUEST_FAILED`. It returns `409` if the file was not uploaded yet, or if the worker is moving the same document at that moment.
 
 ## GET /documents → 200
 `{ "documents": [ … ] }`, newest first. Documents in `INDEXING` are refreshed from the Knowledge Base on read. Only a confirmed index sets `READY`.

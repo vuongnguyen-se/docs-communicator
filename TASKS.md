@@ -14,7 +14,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 | 3 | RAG ingestion into Bedrock Knowledge Base | ✅ Done (2026-11-19) |
 | 4 | Grounded chat with citations | ✅ Done (2026-11-20): **MVP complete** |
 | 5 | Hardening: delete flow, IAM review, alarms, Guardrails | ✅ Done (2026-11-21): demo passed, P5-08 name mix-up fixed |
-| 6 | Advanced: SQS/DLQ, CI/CD, portfolio polish | In progress: P6-03 CI done (2026-11-21) |
+| 6 | Advanced: SQS/DLQ, CI/CD, portfolio polish | In progress: P6-03 CI and P6-01 SQS/DLQ done (2026-11-21) |
 
 **Every phase ends the same way:** deploy → run the phase demo → `cdk destroy` → run the teardown check → confirm the bill in Cost Explorer next day.
 
@@ -172,7 +172,7 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 
 ## Phase 6 — Advanced
 
-- [ ] **P6-01** S3 event → SQS → ingestion worker Lambda, with a DLQ (replaces the manual `/complete` call).
+- [x] **P6-01** (2026-11-21, D-019: worker reuses `complete_upload`; `/complete` kept as an optional "check now"; live demo: 3 PDFs READY via the queue in 7.9 s, fake PDF `FAILED` and deleted, broken message → 3 retries → DLQ → alarm email; evaluation 14/14) S3 event → SQS → ingestion worker Lambda, with a DLQ (replaces the manual `/complete` call).
 - [ ] **P6-02** Evaluate Step Functions and record the decision.
 - [x] **P6-03** (2026-11-21: `.github/workflows/ci.yml`, 3 parallel jobs, no AWS credentials; first run green on PR #7: backend 21 s, frontend 16 s, infrastructure with real `cdk synth` 66 s) GitHub Actions CI: lint, unit tests, frontend build and `cdk synth` on each PR.
 - [ ] **P6-04** (Optional) GitHub Actions deploy through an OIDC role, with no stored AWS keys.
@@ -197,3 +197,4 @@ Already done in code: question validation, `RetrieveAndGenerate` response parsin
 | 2026-11-21 | Synced a second worktree with `main`; installed Python 3.12.10 there (winget, user scope) | None | On `main` at 817de92: 104 backend tests (ruff, mypy strict), 31 infra tests, 25 frontend tests, lint and build all pass. |
 | 2026-11-21 | **Phase 5 demo (P5-07)** from the second machine (new `clouddocs-dev` SSO profile, CDK CLI 2.1149.0): deploy 5 min, 7 alarms OK, forced 4xx spike fired `Api4xxSpike` and the email arrived, delete verified in DynamoDB, S3, Knowledge Base and retrieval (no answers 4 s after the `202`), other-user delete 404, owner checked the sign-in screen. Scripts: `deploy.ps1 -RequireApproval`, `destroy.ps1 -Force` for non-interactive runs | None (destroyed; teardown passed; only `CDKToolkit`) | Found: (1) P5-08 name mix-up in an answer; (2) `check-teardown.ps1` crashed under `destroy.ps1` (inherited `ErrorActionPreference=Stop` turned an expected Cognito not-found into an error, so `-Cleanup` was skipped); fixed and re-run: 2 log groups deleted, check passed. A chat answer that stayed on screen after its PDF was deleted was an old message, not a new answer (chat call times confirm). |
 | 2026-11-21 | **P5-08 live check**: prompt rule alone fixed the name mix-up, but the first evaluation run was 10/14: Bedrock attached citations to correct declines (ABS-1..3, and UN-1 regressed; ABS-2 declined in English). Added the `NO_ANSWER` decline marker (D-018), redeployed (22 s), re-ran: **14/14**; demo question declined in English and Vietnamese with no sources | None (destroyed; teardown passed in `destroy.ps1` itself, 3 log groups cleaned) | Evaluation PDFs generated outside the repo; `eval/venv` is git-ignored. |
+| 2026-11-21 | **P6-01 queued ingestion** built (worker Lambda, `IngestQueue` + `IngestDLQ`, S3 → SQS notification, `IngestDLQNotEmpty` alarm; the browser and the eval script stop calling `/complete`) and demoed: deploy 11 min, 9 alarms OK; broken message retried 3× → DLQ → alarm → email (after the subscription was confirmed); fake PDF `FAILED` / `INVALID_FILE` and deleted in 13 s; 3 PDFs READY via the queue in 7.9 s; evaluation 14/14 | None (destroyed; teardown passed; only `CDKToolkit`) | The tagging index briefly kept listing the deleted SQS event-source mapping; `list-event-source-mappings` and `list-queues` confirmed 0. An alarm fired before the email subscription is confirmed sends no email: confirm first, or reset the alarm state to re-send. |
