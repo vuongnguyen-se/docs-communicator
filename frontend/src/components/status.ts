@@ -14,7 +14,7 @@ export function isUnresolved(status: DocumentStatus): boolean {
 }
 
 const LABELS: Record<DocumentStatus, string> = {
-  PENDING_UPLOAD: "Uploading…",
+  PENDING_UPLOAD: "Checking file…", // uploaded; the ingestion worker verifies it next
   UPLOADED: "Uploaded",
   INDEXING: "Indexing…",
   READY: "Ready",

@@ -1,13 +1,18 @@
-import { ApiError, type ApiClient, type ChatAnswer, type DocumentInfo } from "./types";
+import { ApiError, type ApiClient, type ChatAnswer, type DocumentInfo, type DocumentStatus } from "./types";
 import { stringsFor } from "../lang";
 import { validateFile, validateQuestion } from "./validation";
 
 const MAX_DOCS = 5;
 
-/** In-memory API used for local development and tests. Simulates indexing delay. */
+type MockDoc = DocumentInfo & { checkedAt: number; readyAt: number };
+
+/**
+ * In-memory API used for local development and tests. Mirrors the real flow: after the upload
+ * the document waits for the ingestion worker (PENDING_UPLOAD), then indexes, then is READY.
+ */
 export class MockApi implements ApiClient {
   readonly canDelete = true;
-  private docs = new Map<string, DocumentInfo & { readyAt: number }>();
+  private docs = new Map<string, MockDoc>();
   private seq = 0;
 
   constructor(
@@ -19,9 +24,11 @@ export class MockApi implements ApiClient {
     await new Promise((r) => setTimeout(r, this.latencyMs));
   }
 
-  private view(d: DocumentInfo & { readyAt: number }): DocumentInfo {
-    const status = d.status === "INDEXING" && Date.now() >= d.readyAt ? "READY" : d.status;
-    const { readyAt: _readyAt, ...rest } = { ...d, status };
+  private view(d: MockDoc): DocumentInfo {
+    const now = Date.now();
+    const status: DocumentStatus = now >= d.readyAt ? "READY" : now >= d.checkedAt ? "INDEXING" : "PENDING_UPLOAD";
+    const { checkedAt: _checkedAt, readyAt: _readyAt, ...rest } = { ...d, status };
+    void _checkedAt;
     void _readyAt;
     return rest;
   }
@@ -56,14 +63,15 @@ export class MockApi implements ApiClient {
     }
     const now = new Date().toISOString();
     const id = `doc_${(++this.seq).toString(16).padStart(32, "0")}`;
-    const doc = {
+    const doc: MockDoc = {
       documentId: id,
       filename: file.name,
       fileSize: file.size,
-      status: "INDEXING" as const,
+      status: "PENDING_UPLOAD",
       createdAt: now,
       updatedAt: now,
       errorCode: null,
+      checkedAt: Date.now() + this.indexingMs / 3, // the worker's file check
       readyAt: Date.now() + this.indexingMs,
     };
     this.docs.set(id, doc);

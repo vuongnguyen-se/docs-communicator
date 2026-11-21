@@ -44,10 +44,9 @@ describe("HttpApi", () => {
     await expect(api.listDocuments()).rejects.toMatchObject({ code: "LIMIT_EXCEEDED", status: 409 });
   });
 
-  it("uploads via presigned POST with progress, without leaking the token to S3, then completes", async () => {
+  it("uploads via presigned POST with progress, without leaking the token to S3, and leaves the rest to the worker", async () => {
     const f = fakeFetch([
       { status: 201, body: { document: doc, upload: { url: "https://bucket.s3.amazonaws.com/", fields: { key: "k", policy: "p" } }, expiresInSeconds: 300 } },
-      { status: 202, body: { document: { ...doc, status: "INDEXING" } } },
     ]);
     const sent: { url: string; form: FormData }[] = [];
     const send = async (url: string, form: FormData, onProgress?: (n: number) => void) => {
@@ -62,12 +61,11 @@ describe("HttpApi", () => {
 
     const result = await api.uploadDocument(file, (p) => progress.push(p));
 
-    expect(result.status).toBe("INDEXING");
+    expect(result.status).toBe("PENDING_UPLOAD"); // the queue worker moves it on from here
     expect(progress).toEqual([0.5, 1]);
     expect(sent[0]!.url).toBe("https://bucket.s3.amazonaws.com/");
     expect([...sent[0]!.form.keys()]).toEqual(["key", "policy", "file"]); // file last, no token field
-    expect(f.calls).toHaveLength(2); // the API calls only; S3 went through the form sender
-    expect(f.calls[1]!.url).toBe(`https://api.example.com/documents/${doc.documentId}/complete`);
+    expect(f.calls).toHaveLength(1); // only upload-url: no /complete call any more
   });
 
   it("reports a storage rejection clearly", async () => {

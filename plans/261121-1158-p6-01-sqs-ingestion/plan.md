@@ -44,7 +44,7 @@ Worker: key -> (owner, documentId) -> DocumentService.complete_upload(owner, doc
 |---|---|---|---|
 | 1 | [Worker handler](phase-01-worker-handler.md) | backend | Done (114 tests, ruff, mypy) |
 | 2 | [Infrastructure: queue, DLQ, notification, worker, alarm](phase-02-infrastructure.md) | infrastructure | Done (37 infra tests; IAM report 10 roles, 0 unreviewed wildcards) |
-| 3 | [Frontend: stop calling `/complete`](phase-03-frontend.md) | frontend | Pending |
+| 3 | [Frontend: stop calling `/complete`](phase-03-frontend.md) | frontend | Done (25 tests, lint, build; eval script no longer calls `/complete`) |
 | 4 | [Docs, live demo, teardown](phase-04-docs-and-demo.md) | docs, AWS 💰🧹 | Pending |
 
 Phases 1 to 3 are code only, with no AWS cost, and CI checks every push. Phase 4 deploys, after the owner's approval.
