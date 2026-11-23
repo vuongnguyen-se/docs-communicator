@@ -1,9 +1,10 @@
 # How CloudDocs AI Works
 
-A plain-language guide to the system: what each part does, how requests and data flow, and which stage each piece is in. Last updated: 2026-11-19.
+A plain-language guide to the system: what each part does, how requests and data flow, and which stage each piece is in. Last updated: 2026-11-23.
 
+- Services, versions and settings: `TECH_STACK.md`
 - Detailed checklist: `TASKS.md`
-- Why each choice was made: `DECISIONS.md` (D-001…D-013)
+- Why each choice was made: `DECISIONS.md` (D-001…D-020)
 - API contract: `API_SPECIFICATION.md`
 
 ---
@@ -45,7 +46,7 @@ Everything is **serverless**: there are no servers to manage, and you pay per re
 | Document bucket, DynamoDB table, boto3 adapters | ✅ | `infrastructure/stacks/data.py`, `backend/src/clouddocs/adapters/` |
 | Bedrock Knowledge Base + S3 Vectors, per-document indexing | ✅ | `infrastructure/stacks/knowledge.py`, `backend/src/clouddocs/adapters/bedrock_kb.py` |
 | Grounded chat end to end (evaluation 14/14) | ✅ | `backend/src/clouddocs/adapters/bedrock_kb.py`, `docs/evaluation.md` |
-| Visual design (brand, dark/light, phone layout) | ✅ local · deploy check pending | `frontend/src/styles.css`, `frontend/public/brand/`, D-015 |
+| Visual design (brand, dark/light, phone layout) | ✅ | `frontend/src/styles.css`, `frontend/public/brand/`, D-015 |
 | Alarms, IAM review, Guardrails/WAF decisions | ✅ | `infrastructure/stacks/monitoring.py`, `docs/iam-review.md`, D-016/D-017 |
 | CI (GitHub Actions) | ✅ | `.github/workflows/ci.yml` |
 
@@ -316,9 +317,9 @@ flowchart LR
 | 2 Secure upload | Document bucket, DynamoDB, adapters, real uploads | ✅ Done 2026-11-19 |
 | 3 RAG ingestion | Knowledge Base + S3 Vectors in CDK, per-document indexing | ✅ Done 2026-11-19 |
 | 4 Grounded chat | Filtered `RetrieveAndGenerate`, citations, evaluation set | ✅ Done 2026-11-20: **MVP complete** |
-| UI track | Visual design in mock mode | ⬜ Any time, free |
+| UI track | Visual design in mock mode | ✅ Done 2026-11-20 |
 | 5 Hardening | Delete flow live, IAM review, alarms, Guardrails/WAF decisions | ✅ Done 2026-11-21 |
-| 6 Advanced | SQS + DLQ ingestion, GitHub Actions CI, portfolio material | 🔄 CI and SQS/DLQ done 2026-11-21 |
+| 6 Advanced | SQS + DLQ ingestion, GitHub Actions CI, portfolio material | ✅ Done 2026-11-21 (only the optional deploy from GitHub, P6-04, is open) |
 
 ---
 
@@ -342,8 +343,10 @@ flowchart LR
 ```text
 CloudDocs-AI/
 ├── backend/src/clouddocs/
-│   ├── handlers/      thin Lambda entry points: health, me, documents, chat
+│   ├── handlers/      thin Lambda entry points: health, me, documents, chat, ingest_worker
 │   ├── services/      business logic: documents.py, chat.py, rag.py, interfaces.py (ports)
+│   ├── adapters/      boto3 implementations: DynamoDB, S3, Bedrock Knowledge Base
+│   ├── container.py   builds the services from environment variables
 │   ├── models.py      typed requests/responses and statuses
 │   ├── validators.py  input checks, server-side key building
 │   └── status.py      document state machine
@@ -355,8 +358,11 @@ CloudDocs-AI/
 │   └── components/    DocumentList, Chat
 ├── infrastructure/
 │   ├── app.py         CDK entry point (Region, tags)
-│   ├── stacks/        auth.py, api.py, web.py, backend_code.py (Lambda bundling)
+│   ├── stacks/        auth, web, data, knowledge, ingestion, api, monitoring, backend_code (Lambda bundling)
+│   ├── tools/         iam_report.py (writes docs/iam-review.md)
 │   └── tests/         synth-time security and teardown checks
 ├── scripts/           deploy / destroy / check-teardown / create-user (PowerShell)
-└── docs/              this guide, AWS account setup
+├── eval/              evaluation script and fictional PDF generator
+├── .github/workflows/ CI
+└── docs/              this guide, AWS account setup, evaluation, IAM review, portfolio
 ```
